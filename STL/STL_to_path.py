@@ -97,6 +97,9 @@ class STLSolver:
     Returns:
         x (numpy.ndarray): State trajectory as a function of time.
         u (numpy.ndarray): Control inputs (accelerations) as a function of time.
+        rho_global (float): Global robustness value for the entire trajectory.
+        rho_time_series (list): Robustness values at each timestep.
+        Runtime (float): Solver execution time in seconds.
     """
 
     def __init__(self, spec, objects, x0 = np.zeros(6,), T=10):
@@ -105,7 +108,7 @@ class STLSolver:
         self.x0 = x0
         self.T = T
 
-    def generate_trajectory(self, dt, max_acc, max_speed, verbose = False, include_dynamics=True):
+    def generate_trajectory(self, dt, max_acc, max_speed, verbose = False, include_dynamics=True, rho_min=0.0, obstacle_adjustments=None):
         self.dt = dt
         self.verbose = verbose
         self.max_acc = max_acc
@@ -121,7 +124,8 @@ class STLSolver:
         R = np.eye(3)           # control cost : penalize control effort
 
         N = int(self.T/self.dt)
-        solver = GurobiMICPSolver(eval(self.spec), sys, self.x0, N, verbose=self.verbose)
+        # Pass rho_min to the solver
+        solver = GurobiMICPSolver(eval(self.spec), sys, self.x0, N, verbose=self.verbose, rho_min=rho_min, obstacle_adjustments=obstacle_adjustments, objects=self.objects)
         solver.AddQuadraticCost(Q=Q, R=R)
         u_min = -dynamics.max_acc*np.ones(3,)  # minimum acceleration
         u_max = dynamics.max_acc*np.ones(3,)   # maximum acceleration
@@ -130,12 +134,18 @@ class STLSolver:
         solver.AddStateBounds(-state_bounds, state_bounds)
         
         try:
-            x, u, _, _ = solver.Solve()
+            x, u, rho_global, rho_time_series, Runtime = solver.Solve()
         except Exception as e:
             raise RuntimeError(f"Solver failed: {e}")
 
-        return x, u
-
+        return x, u, rho_global, rho_time_series,Runtime
+    
+    #Print robustness values for a specific timestep
+    def print_timestep_robustness(self, t):
+        if self.gurobi_solver is not None:
+            self.gurobi_solver.print_timestep_robustness(t)
+        else:
+            print("No Gurobi solver available")
 
 class STL_formulas:
     """
