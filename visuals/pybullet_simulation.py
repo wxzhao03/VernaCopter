@@ -71,6 +71,58 @@ def create_cube(pybullet_client, bounds, color, alpha=1.0):
 
     return cubeId
 
+def rho_to_color(rho_val, rho_min, rho_max):
+    """
+    Convert robustness value to RGB color for trajectory visualization.
+    Maps rho values to a color gradient: dark red → red → yellow → green
+    
+    Args:
+        rho_val (float): Robustness value at current waypoint
+        rho_min (float): Minimum robustness in the trajectory
+        rho_max (float): Maximum robustness in the trajectory
+        
+    Returns:
+        list: RGB color values [R, G, B] where each component is in [0, 1]
+    """
+    if rho_max == rho_min:
+        return [1.0, 1.0, 0.0] 
+    
+    norm_rho = 0.0
+    
+    if rho_val <= 0.5:
+        norm_rho = 0.0
+    elif rho_val <= 1.0:
+        norm_rho = 0.25 + (rho_val - 0.5) / 0.5 * 0.25
+    elif rho_val <= 1.5:
+        norm_rho = 0.5 + (rho_val - 1.0) / 0.5 * 0.25
+    else:
+        norm_rho = 0.75 + min((rho_val - 1.5) / 0.5, 1.0) * 0.25
+    
+    norm_rho = np.clip(norm_rho, 0.0, 1.0)
+    
+    if norm_rho < 0.25:
+        t = norm_rho / 0.25
+        R = 0.545 + t * (1.0 - 0.545)
+        G = 0.0
+        B = 0.0
+    elif norm_rho < 0.5:
+        t = (norm_rho - 0.25) / 0.25
+        R = 1.0
+        G = t
+        B = 0.0
+    elif norm_rho < 0.75:
+        t = (norm_rho - 0.5) / 0.25
+        R = 1.0 - t
+        G = 1.0
+        B = 0.0
+    else:
+        t = (norm_rho - 0.75) / 0.25
+        R = 0.0
+        G = 1.0 - t * (1.0 - 0.4)
+        B = 0.0
+
+    return [R, G, B]
+    
 
 def run(waypoints,
         initial_rpys=None,
@@ -87,7 +139,10 @@ def run(waypoints,
         simulation_freq_hz=DEFAULT_SIMULATION_FREQ_HZ,
         control_freq_hz=DEFAULT_CONTROL_FREQ_HZ,
         output_folder=DEFAULT_OUTPUT_FOLDER,
-        colab=DEFAULT_COLAB
+        colab=DEFAULT_COLAB,
+        rho_series=None,
+        rho_min=0.0, 
+        rho_max=1.0,
         ):
     """
     Run a simulation with given waypoints and scenario.
@@ -121,6 +176,9 @@ def run(waypoints,
     NUM_WP = waypoints.shape[0]
     wp_counters = np.array([0 for i in range(num_drones)])
 
+    N_EXTRA_POINTS = 5  # Number of interpolated points between original waypoints
+    WP_RATIO = N_EXTRA_POINTS + 1 # Ratio for mapping interpolated waypoints to original robustness
+    
     if scenario.scenario_name == "reach_avoid":
         duration_sec = 15
     elif scenario.scenario_name == "treasure_hunt":
@@ -257,8 +315,20 @@ def run(waypoints,
 
             #### Plot the trace #######################################
             cur_pos = obs[j][:3]
-            p.addUserDebugLine(lineFromXYZ=last_pos, lineToXYZ=cur_pos, lineColorRGB=[1, 0, 0], lineWidth=4.0)
-            
+            line_color = [1, 0, 0] 
+
+            if rho_series is not None and len(rho_series) > 0:
+                index_total_waypoints = wp_counters[j] 
+                index_original = min(index_total_waypoints // WP_RATIO, len(rho_series) - 1)
+                rho_val = rho_series[index_original]
+                line_color = rho_to_color(rho_val, rho_min, rho_max)
+
+            p.addUserDebugLine(lineFromXYZ=last_pos,
+                               lineToXYZ=cur_pos,
+                               lineColorRGB=line_color, 
+                               lineWidth=4.0)
+            last_pos = cur_pos 
+                    
             if scenario.scenario_name == "treasure_hunt":
                 #### remove door when key is reached #####################
                 key_bounds = scenario.objects["door_key"]
@@ -269,8 +339,6 @@ def run(waypoints,
                     # remove door
                     p.removeBody(key_id)
                     p.removeBody(door_id)
-                    
-            last_pos = cur_pos
 
             #### Log the simulation ####################################
             logger.log(drone=j,
