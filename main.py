@@ -10,6 +10,7 @@ Modules:
 - STLSolver: Generates drone trajectories from STL specifications.
 - TrajectoryAnalyzer: Validates the trajectory using user-defined rules.
 - Visualizer and simulate: Handles trajectory visualization and animation.
+- Interactive optimization: allow user to adjust trajectory parameters
 
 Author: Teun van de Laar
 """
@@ -25,6 +26,7 @@ from basics.scenarios import Scenarios
 from basics.config import Default_parameters, One_shot_parameters
 from visuals.run_simulation import simulate
 from visuals.visualization import Visualizer
+from RA.interactive_path_optimizer import integrate_interactive_optimizer
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,6 +45,7 @@ def main(pars=Default_parameters()):
             - messages: The conversation history during the session.
             - task_accomplished: Boolean, True if the task was completed successfully.
             - all_x: Numpy array of the final trajectory.
+            - all_rho_np: Numpy array of robustness values along the trajectory.
     """ 
 
     # Initializations
@@ -53,6 +56,7 @@ def main(pars=Default_parameters()):
     status = "active"                           # Initialize the status of the conversation
     x0 = scenario.x0                            # Initial position
     all_x = np.expand_dims(x0, axis=1)          # Initialize the full trajectory
+    all_rho = []                                # Initialize robustness values array for full trajectory
     processing_feedback = False                 # Initialize the feedback processing flag
     syntax_checked_spec = None                  # Initialize the syntax checked specification
     spec_checker_iteration = 0                  # Initialize the specification check iteration
@@ -74,7 +78,8 @@ def main(pars=Default_parameters()):
         1. Handles conversations for task input.
         2. Converts natural language to STL.
         3. Solves trajectory optimization problem.
-        4. Validates and visualizes results.
+        4. Optionally refines trajectory through interactive optimization.
+        5. Validates and visualizes results.
         """
 
         # Initialize/reset flags for validation and feedback
@@ -123,23 +128,95 @@ def main(pars=Default_parameters()):
         print(color_text("Generating the trajectory...", 'yellow'))
         try:
             # Generate trajectory
-            x,_ = solver.generate_trajectory(
-                pars.dt, 
+            x, u, rho_global, rho_time_series,Runtime = solver.generate_trajectory(
+                pars.dt,
                 pars.max_acc, 
                 pars.max_speed, 
                 verbose=pars.solver_verbose, 
                 include_dynamics=True
                 )
+            # risk_time_series = risk_assessor.compute_risk_time_series(rho_time_series, x, u)
+
+            # Display complete trajectory (position and velocity)
+            print("\nComplete State Trajectory (x, y, z, vx, vy, vz):")
+            header = f"{'Step':>6} {'Time(s)':>8} {'x':>7} {'y':>7} {'z':>7} {'vx':>7} {'vy':>7} {'vz':>7}"
+            print("-" * len(header))
+            print(header)
+            print("-" * len(header))
+            if x is not None:
+                for t in range(x.shape[1]):
+                    time_sec = t * pars.dt
+                    x_val = x[0, t]
+                    y_val = x[1, t]
+                    z_val = x[2, t]
+                    vx_val = x[3, t]
+                    vy_val = x[4, t]
+                    vz_val = x[5, t]
+
+                    print(f"{t:>6} {time_sec:>8.2f} "
+                          f"{x_val:>7.2f} {y_val:>7.2f} {z_val:>7.2f} "
+                          f"{vx_val:>7.2f} {vy_val:>7.2f} {vz_val:>7.2f}")
+            
+            print(f"Runtime: {Runtime:.4f}")
+            print(f"Global Rho: {rho_global:.4f}")
+
+            #Display complete robustness values
+            print("\nComplete Rho Time Series:")
+            print(f"{'Step':>6} {'Time(s)':>8} {'Rho':>10} {'Position(x,y,z)':>20} {'velocity(x,y,z)':>20} {'acceleration(x,y,z)':>20}")
+            for t in range(len(rho_time_series)):
+                time_sec = t * pars.dt
+                pos = f"({x[0,t]:.2f}, {x[1,t]:.2f}, {x[2,t]:.2f})"
+                vel = f"({x[3,t]:.2f}, {x[4,t]:.2f}, {x[5,t]:.2f})"
+                acc = f"({u[0,t]:.2f}, {u[1,t]:.2f}, {u[2,t]:.2f})"
+                print(f"{t:>6} {time_sec:>8.2f} {rho_time_series[t]:>10.4f} {pos:>20} {vel:>20} {acc:>20}")
+            
+           # Visualize trajectory with robustness gradient in 2D
+            visualizer = Visualizer(x, scenario)
+            fig, ax = visualizer.visualize_trajectory_rho_gradient_2d(rho_time_series)
+            plt.show(block=False)
+            mng = plt.get_current_fig_manager()
+            try:
+                if hasattr(mng, 'window') and hasattr(mng.window, 'state'):
+                    mng.window.state('zoomed')  
+                    print(" Window maximized (Tk)")
+            except Exception as e:
+                print(f" Could not maximize: {e}")
+
+            plt.show()
+            input("Press Enter to continue to interactive optimization...")
+            plt.close('all')           
+
+            # Interactive optimization: allow user to adjust trajectory
+            if pars.interactive_optimization_enabled:
+                x_final, u_final, rho_final, rho_series_final = integrate_interactive_optimizer(
+                    scenario=scenario,
+                    spec=spec,
+                    x0=x0,
+                    T=T,
+                    dt=pars.dt,
+                    pars=pars,
+                    initial_x=x,
+                    initial_u=u,
+                    initial_rho=rho_global,
+                    initial_rho_series=rho_time_series
+                )
+                
+                if x_final is not None:
+                    x = x_final
+                    u = u_final
+                    rho_global = rho_final
+                    rho_time_series = rho_series_final
+                    print(color_text("Using interactively optimized trajectory.", 'green'))
+                else:
+                    print(color_text("Interactive optimization cancelled, using original trajectory.", 'yellow'))
+            else:
+                input("Press Enter to continue...")
+
+            # Continue with trajectory validation...
+
             trajectory_analyzer = TrajectoryAnalyzer(scenario.objects, x, N, pars.dt)    # Initialize the specification checker
             inside_objects_array = trajectory_analyzer.get_inside_objects_array()  # Get array with trajectory analysis
-            visualizer = Visualizer(x, scenario)                            # Initialize the visualizer
-            fig, ax = visualizer.visualize_trajectory()                     # Visualize the trajectory
-            plt.show()
-            input("press key to continue")                                                    # Pause for visualization
-            fig, ax = trajectory_analyzer.visualize_spec(inside_objects_array) # Visualize the trajectory analysis
-            plt.show()
-            input("press key to continue")                             # Pause for visualization
-
+            
             # Specification checker
             if pars.spec_checker_enabled and spec_checker_iteration < pars.spec_check_limit:
                 # Check the specification
@@ -185,6 +262,10 @@ def main(pars=Default_parameters()):
             if trajectory_accepted:
                 # Add the trajectory to the full trajectory
                 all_x = np.hstack((all_x, x[:,1:]))
+                if all_x.shape[1] == len(rho_time_series):
+                    all_rho.extend(rho_time_series)
+                else:
+                    all_rho.extend(rho_time_series[1:])
                 x0 = x[:, -1] # Update the initial position for the next trajectory
                 print("New position after trajectory: ", x0)
 
@@ -210,6 +291,10 @@ def main(pars=Default_parameters()):
         if pars.automated_user and (trajectory_accepted or not pars.spec_checker_enabled):
             if x is not None:
                 all_x = np.hstack((all_x, x[:,1:]))
+                if len(all_rho) == 0:
+                    all_rho.extend(rho_time_series)
+                else:
+                    all_rho.extend(rho_time_series[1:])
             break
         
     # Visualize the full trajectory
@@ -217,8 +302,9 @@ def main(pars=Default_parameters()):
     if all_x.shape[1] == 1:
         print(color_text("No trajectories were accepted. Exiting the program.", 'yellow'))
     else:
-        print(color_text("The full trajectory is generated.", 'yellow'))
-        simulate(pars, scenario, all_x) # Animate the final trajectory if enabled
+        print(color_text("The full trajectory is generated.", 'yellow')) 
+        all_rho_np = np.array(all_rho)
+        simulate(pars, scenario, all_x, all_rho_np)# Animate the final trajectory if enabled
 
     # Check if the task is accomplished using the specification checker module
     trajectory_analyzer = TrajectoryAnalyzer(scenario.objects, all_x, N, pars.dt)
@@ -227,7 +313,7 @@ def main(pars=Default_parameters()):
 
     print(color_text("The program is completed.", 'yellow'))
 
-    return messages, task_accomplished, all_x
+    return messages, task_accomplished, all_x, all_rho_np
 
 if __name__ == "__main__":
     pars = Default_parameters()
