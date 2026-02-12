@@ -40,7 +40,7 @@ class Visualizer:
         animate : bool, optional
             Whether to enable animation (default is False).
         """
-        self.x = x[:3, :]                               # waypoints (only positions)
+        self.x = x[:6, :]                               # waypoints (positions and velocities)
         self.scenario_name = scenario.scenario_name     # scenario name
         self.objects = scenario.objects                 # objects
         self.dt = 0.05                                  # time step
@@ -83,6 +83,269 @@ class Visualizer:
         ax.set_axis_off() # disable axes
 
         return fig, ax
+    
+    def visualize_trajectory_rho_gradient(self, rho_time_series):
+        """
+        Visualize trajectory in 3D with color gradient based on robustness values.
+    
+        Parameters
+        ----------
+        rho_time_series : numpy.ndarray
+            Robustness values at each trajectory point.
+        
+        Returns
+        -------
+        tuple
+            Matplotlib figure and axis objects.
+        """
+
+        if len(rho_time_series) != self.x.shape[1]:
+            raise ValueError("Length of risk_time_series must match number of trajectory points.")
+        
+        # Normalize robustness values to [0, 1] with non-linear scaling
+        norm_rho = np.zeros_like(rho_time_series, dtype=float)
+        # Apply piecewise linear mapping
+        mask1 = rho_time_series <= 0.5
+        mask2 = (rho_time_series > 0.5) & (rho_time_series <= 1.0)
+        mask3 = (rho_time_series > 1.0) & (rho_time_series <= 1.5)
+        mask4 = rho_time_series > 1.5
+
+        norm_rho[mask1] = 0.0  
+        norm_rho[mask2] = (rho_time_series[mask2] - 0.5) / 0.5 * 0.5
+        norm_rho[mask3] = 0.5 + (rho_time_series[mask3] - 1.0) / 0.5 * 0.5
+        norm_rho[mask4] = 1.0
+        # Create custom colormap
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('rho_colormap', ['#8B0000', '#FF0000', '#FFFF00', '#00FF00', '#006400'])
+        colors = cmap(norm_rho)
+
+        
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_title('Trajectory with Risk Coloring')
+        # Plot trajectory segments with color based on local robustness
+        for i in range(self.x.shape[1] - 1):
+            ax.plot(
+                self.x[0, i:i+2],
+                self.x[1, i:i+2],
+                self.x[2, i:i+2],
+                color=colors[i],
+                linewidth=2
+            )
+            
+        ax.scatter(self.x[0, 0], self.x[1, 0], self.x[2, 0], c='blue', s=40, label='Start')
+
+        if self.scenario_name == "reach_avoid": 
+            self._visualize_reach_avoid(ax)
+        elif self.scenario_name == "treasure_hunt":
+            self._visualize_treasure_hunt(ax)
+        # Add colorbar
+        import matplotlib.cm as cm
+        norm = mpl.colors.Normalize(vmin=0, vmax=2)
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.6, pad=0.1)
+        cbar.set_label('Risk Level', rotation=270, labelpad=20)
+
+        cbar.set_ticks([0.5, 1.0, 1.5])
+        cbar.set_ticklabels(['0.5', '1.0', '1.5'])
+
+        ax_cbar = cbar.ax
+        ax_cbar.text(1.0, 1.9, 'No Risk', transform=ax_cbar.transData,rotation=0, va='bottom', ha='center', fontsize=9)
+        ax_cbar.text(1.0, 0.1, 'High Risk', transform=ax_cbar.transData,rotation=0, va='top', ha='center', fontsize=9)
+
+        ax.set_axis_on()
+        ax.view_init(elev=80, azim=-90) 
+        return fig, ax
+    
+    def visualize_trajectory_rho_gradient_2d(self, rho_time_series): 
+        """
+        Visualize trajectory in 2D with color gradient based on robustness values.
+    
+        Parameters
+        ----------
+        rho_time_series : numpy.ndarray
+            Robustness values at each trajectory point.
+        
+        Returns
+        -------
+        tuple
+            Matplotlib figure and axis objects.
+        """
+        if len(rho_time_series) != self.x.shape[1]:
+            raise ValueError("Length of risk_time_series must match number of trajectory points.")
+        # Normalize robustness values
+        norm_rho = np.zeros_like(rho_time_series, dtype=float)
+        # Create color gradient from normalized robustness
+        mask1 = rho_time_series <= 0.5
+        mask2 = (rho_time_series > 0.5) & (rho_time_series <= 1.0)
+        mask3 = (rho_time_series > 1.0) & (rho_time_series <= 1.5)
+        mask4 = rho_time_series > 1.5
+
+        norm_rho[mask1] = 0.0  
+        norm_rho[mask2] = (rho_time_series[mask2] - 0.5) / 0.5 * 0.5
+        norm_rho[mask3] = 0.5 + (rho_time_series[mask3] - 1.0) / 0.5 * 0.5
+        norm_rho[mask4] = 1.0
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('rho_colormap', ['#8B0000', '#FF0000', '#FFFF00', '#00FF00', '#006400'])
+        colors = cmap(norm_rho)
+        # Create 2D plot with adjusted margins
+        fig, ax = plt.subplots(figsize=(10, 10))
+        fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
+        ax.set_title('Trajectory with Risk Coloring')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_aspect('equal')
+        ax.grid(True, alpha=0.3)
+        # Plot trajectory
+        for i in range(self.x.shape[1] - 1):
+            ax.plot( self.x[0, i:i+2], self.x[1, i:i+2], color=colors[i], linewidth=3)
+
+        ax.plot([], [], color='orange', linewidth=3, label='Planned Trajectory')
+        # Mark starting position
+        ax.scatter(self.x[0, 0], self.x[1, 0], c='blue', marker='o', s=40, zorder=10)
+        # Visualize scenario in 2D
+        if self.scenario_name == "reach_avoid": 
+            self._visualize_reach_avoid_2d(ax, show_labels=True)
+        elif self.scenario_name == "treasure_hunt":
+            self._visualize_treasure_hunt_2d(ax, show_labels=False)
+
+        import matplotlib.cm as cm
+        norm = mpl.colors.Normalize(vmin=0, vmax=2)
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.8, pad=0.05)
+        cbar.set_label('Risk Level', rotation=270, labelpad=20)
+
+        cbar.set_ticks([0.5, 1.0, 1.5])
+        cbar.set_ticklabels(['0.5', '1.0', '1.5'])
+
+        ax_cbar = cbar.ax
+        ax_cbar.text(1.0, 1.9, 'No Risk', transform=ax_cbar.transData,rotation=0, va='bottom', ha='center', fontsize=9)
+        ax_cbar.text(1.0, 0.1, 'High Risk', transform=ax_cbar.transData,rotation=0, va='top', ha='center', fontsize=9)
+      
+        return fig, ax
+
+    def _visualize_reach_avoid_2d(self, ax,show_labels=True):
+        """
+        Visualize objects for reach_avoid scenario in 2D.
+    
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes to plot on.
+        show_labels : bool
+            Whether to show object labels.
+        """
+        from matplotlib.patches import Rectangle
+    
+        for obj_name in self.objects:
+            xmin, xmax, ymin, ymax, zmin, zmax = self.objects[obj_name]
+        
+            if 'obstacle' in obj_name:
+                color = 'red'
+                alpha = 0.3
+            else:  # goal
+                color = '#28d778'
+                alpha = 0.5
+        
+            width = xmax - xmin
+            height = ymax - ymin
+            rect = Rectangle(
+                (xmin, ymin),
+                width,
+                height,
+                linewidth=2,
+                edgecolor='black',
+                facecolor=color,
+                alpha=alpha,
+            )
+            ax.add_patch(rect)
+        
+            if show_labels:
+                center_x = (xmin + xmax) / 2
+                center_y = (ymin + ymax) / 2
+                ax.text(center_x, center_y, obj_name, 
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        fontsize=8,
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
+    
+        ax.set_xlim(-5, 5)
+        ax.set_ylim(-4, 5)
+
+    def _visualize_treasure_hunt_2d(self, ax,show_labels=True):
+        """
+        Visualize objects for treasure_hunt scenario in 2D.
+    
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes to plot on.
+        show_labels : bool
+            Whether to show labels for key objects.
+        """
+        from matplotlib.patches import Rectangle
+    
+        colors = {
+            'wall': '#a3a3a3',
+            'key': '#28d778',
+            'door': '#c2853d',
+            'chest': '#FFD700',
+            'bounds': '#a3a3a3',
+        }
+    
+        alphas = {
+            'wall': 0.3,
+            'key': 0.7,
+            'door': 0.7,
+            'chest': 0.7,
+            'bounds': 0.1,
+        }
+    
+        for obj_name in self.objects:
+            xmin, xmax, ymin, ymax, zmin, zmax = self.objects[obj_name]
+        
+            # Determine object type
+            obj_type = None
+            for keyword in ['key', 'wall', 'chest', 'door', 'bounds']:
+                if keyword in obj_name:
+                    obj_type = keyword
+                    break
+        
+            if obj_type is None:
+                continue
+        
+            # Create rectangle
+            width = xmax - xmin
+            height = ymax - ymin
+            rect = Rectangle(
+                (xmin, ymin),
+                width,
+                height,
+                linewidth=1.5,
+                edgecolor='black',
+                facecolor=colors[obj_type],
+                alpha=alphas[obj_type]
+            )
+            ax.add_patch(rect)
+        
+            # Add text labels for important objects
+            if show_labels and obj_type in ['key', 'chest', 'door']:
+                center_x = (xmin + xmax) / 2
+                center_y = (ymin + ymax) / 2
+                ax.text(center_x, center_y, obj_name,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        fontsize=9,
+                        fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.4', 
+                                facecolor='white', 
+                                alpha=0.8,
+                                edgecolor='black'))
+    
+        ax.set_xlim(-4.5, 4.5)
+        ax.set_ylim(-4.5, 4.5)
     
     def _visualize_reach_avoid(self, ax):
         """
@@ -204,3 +467,108 @@ class Visualizer:
             [o[2], o[2], o[2] + h, o[2] + h, o[2]],                 # z coordinate of points in outside surface
             [o[2], o[2], o[2] + h, o[2] + h, o[2]]]                 # z coordinate of points in inside surface
         return np.asarray(x), np.asarray(y), np.asarray(z)
+    
+    
+    def visualize_comparison_2d(self, rho_original, x_new, rho_series_new, label_original="Current Trajectory", label_new="Proposed Trajectory"):
+        """
+        Visualize side-by-side comparison of two trajectories with robustness coloring.
+        
+        Parameters
+        ----------
+        rho_original : numpy.ndarray
+            Robustness values for current trajectory.
+        x_new : numpy.ndarray
+            New trajectory waypoints.
+        rho_series_new : numpy.ndarray
+            Robustness values for new trajectory.
+        label_original : str
+            Label for current trajectory.
+        label_new : str
+            Label for proposed trajectory.
+            
+        Returns
+        -------
+        tuple
+            Matplotlib figure and axis objects.
+        """
+        # Validate input dimensions
+        if len(rho_original) != self.x.shape[1]:
+            raise ValueError("Length of rho_original must match number of trajectory points.")
+        if len(rho_series_new) != x_new.shape[1]:
+            raise ValueError("Length of rho_series_new must match number of new trajectory points.")
+        # Normalize robustness
+        norm_rho_orig = np.zeros_like(rho_original, dtype=float)
+        
+        mask1 = rho_original <= 0.5
+        mask2 = (rho_original > 0.5) & (rho_original <= 1.0)
+        mask3 = (rho_original > 1.0) & (rho_original <= 1.5)
+        mask4 = rho_original > 1.5
+        
+        norm_rho_orig[mask1] = 0.0  
+        norm_rho_orig[mask2] = (rho_original[mask2] - 0.5) / 0.5 * 0.5
+        norm_rho_orig[mask3] = 0.5 + (rho_original[mask3] - 1.0) / 0.5 * 0.5
+        norm_rho_orig[mask4] = 1.0
+        # Normalize robustness for new trajectory
+        norm_rho_new = np.zeros_like(rho_series_new, dtype=float)
+        
+        mask1_new = rho_series_new <= 0.5
+        mask2_new = (rho_series_new > 0.5) & (rho_series_new <= 1.0)
+        mask3_new = (rho_series_new > 1.0) & (rho_series_new <= 1.5)
+        mask4_new = rho_series_new > 1.5
+        
+        norm_rho_new[mask1_new] = 0.0  
+        norm_rho_new[mask2_new] = (rho_series_new[mask2_new] - 0.5) / 0.5 * 0.5
+        norm_rho_new[mask3_new] = 0.5 + (rho_series_new[mask3_new] - 1.0) / 0.5 * 0.5
+        norm_rho_new[mask4_new] = 1.0
+        # Create colormap
+        from matplotlib.colors import LinearSegmentedColormap
+        cmap = LinearSegmentedColormap.from_list('rho_colormap', 
+                                                ['#8B0000', '#FF0000', '#FFFF00', '#00FF00', '#006400'])
+        colors_orig = cmap(norm_rho_orig)
+        colors_new = cmap(norm_rho_new)
+        
+        fig, ax = plt.subplots(figsize=(10, 10))
+        fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
+        
+        ax.set_title('Trajectory Comparison with Risk Coloring')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_aspect('equal')
+        ax.grid(True, alpha=0.3)
+        
+        # Plot original trajectory
+        for i in range(self.x.shape[1] - 1):
+            ax.plot(self.x[0, i:i+2],self.x[1, i:i+2],color=colors_orig[i],linewidth=3)
+        
+        ax.plot([], [], color='orange', linewidth=3, label=label_original)
+
+        # Plot new trajectory as dashed line
+        for i in range(x_new.shape[1] - 1):
+            ax.plot(x_new[0, i:i+2], x_new[1, i:i+2], color=colors_new[i], linewidth=2.5, linestyle='--')
+        
+        ax.plot([], [], color='gray', linestyle='--', linewidth=2.5, label=label_new)
+        
+        ax.scatter(self.x[0, 0], self.x[1, 0], c='blue', marker='o', s=40, zorder=10)
+        
+        if self.scenario_name == "reach_avoid": 
+            self._visualize_reach_avoid_2d(ax, show_labels=True)
+        elif self.scenario_name == "treasure_hunt":
+            self._visualize_treasure_hunt_2d(ax, show_labels=True)
+        
+        import matplotlib.cm as cm
+        norm = mpl.colors.Normalize(vmin=0, vmax=2)
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.8, pad=0.05)
+        cbar.set_label('Risk Level', rotation=270, labelpad=20)
+        
+        cbar.set_ticks([0.5, 1.0, 1.5])
+        cbar.set_ticklabels(['0.5', '1.0', '1.5'])
+        
+        ax_cbar = cbar.ax
+        ax_cbar.text(1.0, 1.9, 'No Risk', transform=ax_cbar.transData,rotation=0, va='bottom', ha='center', fontsize=9)
+        ax_cbar.text(1.0, 0.1, 'High Risk', transform=ax_cbar.transData,rotation=0, va='top', ha='center', fontsize=9)
+        
+        ax.legend(loc='upper right')
+        
+        return fig, ax
