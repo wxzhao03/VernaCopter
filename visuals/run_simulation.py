@@ -3,7 +3,7 @@ import numpy as np
 from .pybullet_simulation import run
 from basics.scenarios import *
 
-def simulate(pars, scenario, all_x):
+def simulate(pars, scenario, all_x, all_rho):
     """
     Animates the final trajectory simulation.
 
@@ -18,6 +18,8 @@ def simulate(pars, scenario, all_x):
     all_x : ndarray
         Array of waypoints with shape (n_dimensions, n_timesteps).
         The first three rows correspond to x, y, z positions of the waypoints.
+    all_rho : ndarray
+        Array of robustness values at each waypoint for color-coded trajectory visualization.
 
     Notes:
     -----
@@ -44,11 +46,19 @@ def simulate(pars, scenario, all_x):
 
                 # start simulation when the user presses enter
                 input("Press Enter to start the simulation.")
+                
+                # Calculate robustness range for color mapping
+                rho_min = np.min(all_rho)
+                rho_max = np.max(all_rho)
 
                 run(waypoints=TARGET_POS, 
                 initial_rpys=INIT_RPYS,    
                 scenario=scenario,
-                save_animation=pars.save_animation)
+                save_animation=pars.save_animation,
+                rho_series=all_rho,
+                rho_min=rho_min,   
+                rho_max=rho_max
+                )
 
             except Exception as e:
                 print(color_text(f"Failed to animate the final trajectory: {e}", 'yellow'))
