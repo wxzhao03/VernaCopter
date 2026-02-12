@@ -33,7 +33,7 @@ class Default_parameters:
         self.animate_final_trajectory = True         # Animate the final trajectory
         self.save_animation = False                  # Save the final trajectory animation
         self.show_map = False                        # Show a map of the scenario at the start of the program
-
+        self.interactive_optimization_enabled = True # Enable interactive optimization module
         # Logging flags
         self.solver_verbose = False                  # Enable solver verbose
         self.print_ChatGPT_instructions = False      # Print ChatGPT instructions
@@ -72,10 +72,10 @@ class One_shot_parameters:
         self.manual_trajectory_check_enabled = False # Enable manual trajectory check
 
         # Visualization flags
-        self.animate_final_trajectory = False        # Animate the final trajectory
+        self.animate_final_trajectory = False     # Animate the final trajectory
         self.save_animation = False                  # Save the final trajectory animation
         self.show_map = False                        # Show a map of the scenario at the start of the program
-
+        self.interactive_optimization_enabled = True # Enable interactive optimization module
         # Logging flags
         self.solver_verbose = False                  # Enable solver verbose
         self.print_ChatGPT_instructions = False      # Print ChatGPT instructions
