@@ -8,9 +8,9 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.utils.reset_estimator import reset_estimator
 
-DRONE_URI = 'radio://0/80/2M/E7E7E7E708'  
-DRONE_NAME = 'cf8'  
-VICON_HOST = '131.155.34.241'  
+DRONE_URI = 'radio://0/80/2M/E7E7E7E711'  
+DRONE_NAME = 'cf11'  
+VICON_HOST = '10.128.7.250'  
 
 class MocapWrapper(Thread):
     def __init__(self, body_name: str, host_name: str, system_type: str = "vicon"):
@@ -174,7 +174,7 @@ class InteractiveDroneController:
         print("  r  - Move up       (Z+)")
         print("  f  - Move down     (Z-)")
         print("  g  - Go to (x,y,z)")
-        print("  pt  - Get current position")
+        print("  p  - Get current position")
         print("  1  - simple test")
         print(f"step size for each movement: {self.step_size}m")
     
