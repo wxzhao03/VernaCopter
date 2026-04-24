@@ -55,6 +55,7 @@ def main(pars=Default_parameters()):
     previous_messages = []                      # Initialize the conversation
     status = "active"                           # Initialize the status of the conversation
     x0 = scenario.x0                            # Initial position
+    all_u = np.empty((3, 0))
     all_x = np.expand_dims(x0, axis=1)          # Initialize the full trajectory
     all_rho = []                                # Initialize robustness values array for full trajectory
     processing_feedback = False                 # Initialize the feedback processing flag
@@ -85,28 +86,33 @@ def main(pars=Default_parameters()):
         # Initialize/reset flags for validation and feedback
         trajectory_accepted = False
 
-        # Generate STL specification
-        if syntax_checked_spec is None: 
-            messages, status = translator.gpt_conversation(
-                instructions_file=pars.instructions_file, 
-                previous_messages=previous_messages, 
-                processing_feedback=processing_feedback, 
-                status=status, automated_user=pars.automated_user, 
-                automated_user_input=scenario.automated_user_input,
-                )
-            
-            if status == "exited": # Break loop if user exits
-                break
-            
-            # Translate conversation into STL specification
-            spec = translator.get_specs(messages)
-
-            processing_feedback = False
-
+        if pars.automated_translator:
+            spec = scenario.automated_translator_spec
+            messages = None
+            print("--- DEBUG MODE: Using pre-defined STL specification ---")
         else:
-            # Use syntax-checked STL specification
-            spec = syntax_checked_spec
-            syntax_checked_spec = None
+            # Generate STL specification
+            if syntax_checked_spec is None: 
+                messages, status = translator.gpt_conversation(
+                    instructions_file=pars.instructions_file, 
+                    previous_messages=previous_messages, 
+                    processing_feedback=processing_feedback, 
+                    status=status, automated_user=pars.automated_user, 
+                    automated_user_input=scenario.automated_user_input,
+                    )
+                
+                if status == "exited": # Break loop if user exits
+                    break
+                
+                # Translate conversation into STL specification
+                spec = translator.get_specs(messages)
+
+                processing_feedback = False
+
+            else:
+                # Use syntax-checked STL specification
+                spec = syntax_checked_spec
+                syntax_checked_spec = None
         print("Extracted specification: ", spec)
         try:
             objects = scenario.objects
@@ -135,8 +141,11 @@ def main(pars=Default_parameters()):
                 verbose=pars.solver_verbose, 
                 include_dynamics=True
                 )
+            print("x_final after sovler:", x.shape)
+            print("u_final after sovler:", u.shape)
+            print(f"u shape={u.shape}")
             # risk_time_series = risk_assessor.compute_risk_time_series(rho_time_series, x, u)
-
+         
             # Display complete trajectory (position and velocity)
             print("\nComplete State Trajectory (x, y, z, vx, vy, vz):")
             header = f"{'Step':>6} {'Time(s)':>8} {'x':>7} {'y':>7} {'z':>7} {'vx':>7} {'vy':>7} {'vz':>7}"
@@ -157,6 +166,15 @@ def main(pars=Default_parameters()):
                           f"{x_val:>7.2f} {y_val:>7.2f} {z_val:>7.2f} "
                           f"{vx_val:>7.2f} {vy_val:>7.2f} {vz_val:>7.2f}")
             
+            #print u after solver
+            print("\nComplete Control Input (ax, ay, az):")
+            print(f"{'Step':>6} {'Time(s)':>8} {'ax':>8} {'ay':>8} {'az':>8}")
+            print("-" * 46)
+            for t in range(u.shape[1]):
+                print(f"{t:>6} {t*pars.dt:>8.2f} "
+                    f"{u[0,t]:>8.4f} {u[1,t]:>8.4f} {u[2,t]:>8.4f}")
+            print(f"\nN=int(T/dt)=int({scenario.T_initial}/{pars.dt})={int(scenario.T_initial/pars.dt)}")
+            
             print(f"Runtime: {Runtime:.4f}")
             print(f"Global Rho: {rho_global:.4f}")
 
@@ -176,11 +194,9 @@ def main(pars=Default_parameters()):
             plt.show(block=False)
             mng = plt.get_current_fig_manager()
             try:
-                if hasattr(mng, 'window') and hasattr(mng.window, 'state'):
-                    mng.window.state('zoomed')  
-                    print(" Window maximized (Tk)")
+                mng.window.showMaximized()
             except Exception as e:
-                print(f" Could not maximize: {e}")
+                print(f"Could not maximize: {e}")
 
             plt.show()
             input("Press Enter to continue to interactive optimization...")
@@ -262,6 +278,7 @@ def main(pars=Default_parameters()):
             if trajectory_accepted:
                 # Add the trajectory to the full trajectory
                 all_x = np.hstack((all_x, x[:,1:]))
+                all_u = np.hstack((all_u, u))
                 if all_x.shape[1] == len(rho_time_series):
                     all_rho.extend(rho_time_series)
                 else:
@@ -291,6 +308,7 @@ def main(pars=Default_parameters()):
         if pars.automated_user and (trajectory_accepted or not pars.spec_checker_enabled):
             if x is not None:
                 all_x = np.hstack((all_x, x[:,1:]))
+                all_u = np.hstack((all_u, u))
                 if len(all_rho) == 0:
                     all_rho.extend(rho_time_series)
                 else:
@@ -313,7 +331,13 @@ def main(pars=Default_parameters()):
 
     print(color_text("The program is completed.", 'yellow'))
 
-    return messages, task_accomplished, all_x, all_rho_np
+    if hasattr(pars, 'use_simulation') and pars.use_simulation:
+        return messages, task_accomplished, all_x, all_rho_np, all_u, spec
+    else:
+        return messages, task_accomplished, all_x, all_rho_np
+    # return messages, task_accomplished, all_x, all_rho_np, all_u
+    #for online
+    # return messages, task_accomplished, all_x, all_rho_np, spec     
 
 if __name__ == "__main__":
     pars = Default_parameters()
