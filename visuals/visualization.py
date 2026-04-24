@@ -271,8 +271,8 @@ class Visualizer:
                         fontsize=8,
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7))
     
-        ax.set_xlim(-5, 5)
-        ax.set_ylim(-4, 5)
+        ax.set_xlim(-2.5, 2.5)
+        ax.set_ylim(-2.5, 2.5)
 
     def _visualize_treasure_hunt_2d(self, ax,show_labels=True):
         """
