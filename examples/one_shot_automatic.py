@@ -17,7 +17,7 @@ from experiments.save_results import save_results           # Import the save_re
 import numpy as np
 
 try:
-    from deployment.deploy_and_visualizition_2d import deploy
+    from deployment.deploy_online import deploy
     deployment = True
 except Exception as e:
     deployment = False
@@ -29,7 +29,14 @@ def run_one_shot(scenario_name="reach_avoid"): # treasure_hunt, reach_avoid
     pars = One_shot_parameters(scenario_name = scenario_name)   # Get the parameters
 
     try:
-        messages, task_accomplished, waypoints, all_rho_np = main(pars)     # Run the main program
+        if pars.use_simulation:
+            messages, task_accomplished, waypoints, all_rho_np, all_u, spec = main(pars)
+            print("waypoints after main:", waypoints.shape)
+            print("all_u after main",all_u.shape)
+        else:
+            messages, task_accomplished, waypoints, all_rho_np = main(pars)
+        # messages, task_accomplished, waypoints, all_rho_np = main(pars)     # Run the main program
+        # messages, task_accomplished, waypoints, all_rho_np, spec = main(pars)   #for online
     except Exception as e:
         print(e)
         
@@ -42,14 +49,74 @@ def run_one_shot(scenario_name="reach_avoid"): # treasure_hunt, reach_avoid
 
     # TODO: ask user to load old feasible trajectory
     # waypoints = None # remove this, once we add a trajectory checker
-    if pars.deploy_on_drone and deployment and (waypoints is not None):
+    # if pars.deploy_on_drone and deployment and (waypoints is not None):
+    #     from basics.scenarios import Scenarios
+    #     scenario = Scenarios(pars.scenario_name)
+    #     # deploy(waypoints, 
+    #     #    scenario=scenario,       
+    #     #    all_rho=all_rho_np)
+    #     print("waypoints shape:", waypoints.shape)
+    #     print("waypoints first 3 cols vel:", waypoints[3:6, :3])
+    #     # deploy(waypoints, scenario=scenario,       
+    #     #    all_rho=all_rho_np, spec_str=spec,dt=pars.dt, use_online_mpc=False)
+    # #     deploy(waypoints, scenario=scenario, all_rho=all_rho_np,
+    # #    spec_str=spec, dt=pars.dt, tracking_test=True)
+    #     deploy(waypoints, scenario=scenario,       
+    #         all_rho=all_rho_np, spec_str=spec, dt=pars.dt,
+    #         max_acc=pars.max_acc, max_speed=pars.max_speed,
+    #         use_online_mpc=True)
+        
+
+    if pars.use_simulation and (waypoints is not None):
         from basics.scenarios import Scenarios
         scenario = Scenarios(pars.scenario_name)
-        deploy(waypoints, 
-           scenario=scenario,       
-           all_rho=all_rho_np)
-        # deploy(waypoints)
+        from deployment.simulation_two_mode import simulate_deployment
+        if pars.automated_translator:
+            newspec = scenario.automated_translator_newspec
+        # print("all_u shape:", all_u.shape)
 
+
+        # for simulate_mpc_online
+        # simulate_deployment(waypoints, all_u, scenario=scenario,
+                        # all_rho=all_rho_np, noise_std=pars.noise_std,
+                        # spec_str=spec, dt=pars.dt,
+                        # max_acc=pars.max_acc, max_speed=pars.max_speed,use_voice=True)
+       #use_voice=True
+ 
+    #  for simulate_online_change
+    #     simulate_deployment(
+    #         waypoints, all_u,
+    #         scenario=scenario,
+    #         all_rho=all_rho_np,
+    #         spec_str=spec,              
+    #         spec_str_phase2=(
+    #         'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(35, 35) & '
+    #         '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle6"], name="!obstacle6") & '
+    #         'STL_formulas.outside_cuboid(objects["obstacle7"], name="!obstacle7")).always(0, 35)'
+    #     ),
+    #         switch_step=15,
+    #         noise_std=pars.noise_std,
+    #         dt=pars.dt,
+    #         max_acc=pars.max_acc,
+    #         max_speed=pars.max_speed,
+    #     )
+
+    # # same spec
+    #     simulate_deployment(waypoints, all_u, scenario=scenario,all_rho=all_rho_np, noise_std=pars.noise_std,spec_str=spec,dt=pars.dt,max_acc=pars.max_acc, max_speed=pars.max_speed,use_voice=False)
+    # cswitch spec
+        print("waypoint for simulation:", waypoints.shape)
+        print("all_u for simulation", all_u.shape)
+        simulate_deployment(waypoints, all_u, scenario=scenario,all_rho=all_rho_np, noise_std=pars.noise_std, spec_str=spec, 
+                            spec_str_phase2=newspec, switch_step=9,dt=pars.dt,max_acc=pars.max_acc, max_speed=pars.max_speed,use_voice=True)
+    elif pars.deploy_on_drone and deployment and (waypoints is not None):
+        from basics.scenarios import Scenarios
+        scenario = Scenarios(pars.scenario_name)
+        deploy(waypoints, scenario=scenario, all_rho=all_rho_np)
     return messages, task_accomplished, waypoints
 
 
