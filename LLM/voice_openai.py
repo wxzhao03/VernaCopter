@@ -74,7 +74,7 @@ class VoiceOpenAI:
         
         pygame.mixer.init()
     
-    def record_audio(self, duration=10, silence_threshold=500, silence_duration=2):
+    def record_audio(self, duration=3.5, silence_threshold=200, silence_duration=0.5):
         """
         Records audio from microphone with automatic silence detection.
         
