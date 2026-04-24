@@ -1,6 +1,6 @@
 import sys
 
-print("Testing motioncapture installation...")
+#print("Testing motioncapture installation...")
 
 try:
     import motioncapture
@@ -8,7 +8,8 @@ try:
     print(f"✓ Location: {motioncapture.__file__}")
     
     print("\nTrying to connect to Vicon...")
-    mc = motioncapture.connect("vicon", {'hostname': '131.155.34.241'})
+    mc = motioncapture.connect("vicon", {'hostname': '10.128.7.250'})
+    #mc = motioncapture.connect("vicon", {'hostname': '131.155.125.233'})
     print("✓ Vicon connection successful!")
     
 except Exception as e:
