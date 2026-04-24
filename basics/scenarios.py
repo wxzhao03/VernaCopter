@@ -25,6 +25,8 @@ class Scenarios:
         self.x0 = self.get_starting_state()
         self.T_initial = self.get_time_horizon()
         self.automated_user_input = self.get_automated_user_input()
+        self.automated_translator_spec = self.get_automated_translator_spec()
+        self.automated_translator_newspec = self.get_automated_translator_newspec()
 
     def get_starting_state(self):
         """
@@ -34,7 +36,8 @@ class Scenarios:
             np.ndarray: Array defining the agent's initial position and velocity.
         """
         if self.scenario_name == "reach_avoid":
-            x0 = np.array([-3.5,-3.5,0.5,0.,0.,0.])
+            # x0 = np.array([-3.5,-3.5,0.5,0.,0.,0.])
+            x0 = np.array([-2, -2, 0.15, 0., 0., 0.])
         elif self.scenario_name == "treasure_hunt":
             x0 = np.array([3.,-4.,0.5,0.,0.,0.])
         return x0
@@ -61,15 +64,28 @@ class Scenarios:
         # changed the heights such that the drone does not simply fly over all obstacles
         # when just making the obstacles higher, the drone will fly below them (through the ground..)
         if self.scenario_name == "reach_avoid":
-            objects = {"goal": (4., 5., 4., 5., 1., 2.),
-                       "obstacle1": (-3., -1., -0.5, 1.5, -10, 10.),
-                       "obstacle2": (-4.5, -3., 0., 2.25, -10, 10.),
-                       "obstacle3": (-2., -1., 4., 5., -10., 10),
-                       "obstacle4": (3., 4., -3.5, -2.5, -10., 10.),
-                       "obstacle5": (4., 5., 0., 1., -10., 10),
-                       "obstacle6": (2., 3.5, 1.5, 2.5, -10., 10.),
-                       "obstacle7": (-2., -1., -2., -1., -10., 10.),
-                       }
+            # objects = {"goal": (4., 5., 4., 5., 0., 2.),
+            #            "obstacle1": (-3., -1., -0.5, 1.5, -10, 10.),
+            #            "obstacle2": (-4.5, -3., 0., 2.25, -10, 10.),
+            #            "obstacle3": (-2., -1., 4., 5., -10., 10),
+            #            "obstacle4": (3., 4., -3.5, -2.5, -10., 10.),
+            #            "obstacle5": (4., 5., 0., 1., -10., 10),
+            #            "obstacle6": (2., 3.5, 1.5, 2.5, -10., 10.),
+            #            "obstacle7": (-2., -1., -2., -1., -10., 10.),
+            #            }
+            objects = {
+                # "goal":     (1.3, 2.0, 1.3, 2.0, 0., 2.),
+                # "obstacle": (-0.2,0.5 , -0.2, 0.5, -10., 10.),
+               "goal":      (1.5, 2.0, 1.5, 2.0, 0., 2.),
+               "goal2":(1.5, 2.0, -2.0, -1.5, 0., 2.),
+    "obstacle1": (-2.5, -2, -1, -0.5, -10., 10.),
+    "obstacle2": (-1.5,  -1.0,  -1, -0.5, -10., 10.),
+    "obstacle3": (-0.5,  0.0,  -1, -0.5, -10., 10.),
+    "obstacle4": (0.5,  1.0,  -1, -0.5, -10., 10.),
+    "obstacle5": (1.5,  2.0,  -1, -0.5, -10., 10.),
+    
+
+            }
 
         elif self.scenario_name == "treasure_hunt":
             objects = {"door_key" : (3.75, 4.75, 3.75, 4.75, 1., 2.),
@@ -108,7 +124,7 @@ class Scenarios:
             int: Time horizon for the scenario.
         """
         if self.scenario_name == "reach_avoid":
-            T = 25
+            T = 30
         elif self.scenario_name == "treasure_hunt":
             T = 70
         return T
@@ -126,3 +142,64 @@ class Scenarios:
             automated_user_input = ("Go to the key in the first 30 seconds, then go to the chest. Avoid all walls. "
                                     "Stay in the room at all times. The door will open when you reach the key.")
         return automated_user_input
+    
+    def get_automated_translator_spec(self):
+        """
+        Retrieves the predefined STL for the scenario.
+
+        Returns:
+            spec: STL for automated systems.
+        """
+        # if self.scenario_name == "reach_avoid":
+        #     spec = (
+        #     'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(35, 35) & '
+        #     '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle6"], name="!obstacle6") & '
+        #     'STL_formulas.outside_cuboid(objects["obstacle7"], name="!obstacle7")).always(0, 35)'
+        # )
+        if self.scenario_name == "reach_avoid":
+            spec = (
+            'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(20, 20) & '
+            '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)'
+        )
+            newspec =(
+            'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
+            '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)')
+        elif self.scenario_name == "treasure_hunt":
+            spec = ''
+        else:
+            spec = ""
+        return spec
+    
+    def get_automated_translator_newspec(self):
+        """
+        Retrieves the predefined newSTL for the scenario.
+
+        Returns:
+            newspec: STL for automated systems.
+        """
+        if self.scenario_name == "reach_avoid":
+            newspec =(
+            'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
+            '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)')
+        elif self.scenario_name == "treasure_hunt":
+            newspec = ''
+        else:
+            newspec = ""
+        return newspec
