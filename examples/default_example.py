@@ -13,7 +13,7 @@ from basics.config import Default_parameters                # Import the default
 from main import main                                       # Import the main program
 from experiments.save_results import save_results           # Import the save_results function
 
-scenario_name = "treasure_hunt"                             # "reach_avoid", or "treasure_hunt"
+scenario_name = "reach_avoid"                             # "reach_avoid", or "treasure_hunt"
 pars = Default_parameters(scenario_name = scenario_name)    # Get the parameters
 
 try:
@@ -24,4 +24,4 @@ except Exception as e:
     messages = []  
 
 if pars.save_results:
-        save_results(pars, messages, task_accomplished, waypoints) # Save the results
+        save_results(pars, messages, task_accomplished, waypoints) # Save the resultsreachreah
