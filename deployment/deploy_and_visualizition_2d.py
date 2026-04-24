@@ -115,8 +115,8 @@ def deploy(
     waypoints = None,
     scenario = None,      
     all_rho = None,
-    drone_name: str = 'cf8',
-    host_name: str = '131.155.34.241',
+    drone_name: str = 'cf11',
+    host_name: str = '10.128.7.250',
     send_full_pose: bool = True,
     orientation_std_dev: float = 8.0e-3,
 ):
@@ -125,7 +125,7 @@ def deploy(
     Connects to Crazyflie and Vicon, streams external pose, flies a waypoint sequence,
     and shuts everything down cleanly.
     """
-    uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E708') # TODO: make this into a variable
+    uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E711') # TODO: make this into a variable
 
     # Drivers once per process
     cflib.crtp.init_drivers()
@@ -163,7 +163,7 @@ def deploy(
     
                 print("take off and moving drone to starting position")
                 commander.takeoff(0.15, 2.0)
-                time.sleep(1.0)
+                time.sleep(2.0)
     
                 start_x, start_y = transform_wp_to_projector(waypoints[0, 0], waypoints[1, 0], scale_xy)
                 start_z = 0.15
