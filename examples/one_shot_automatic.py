@@ -34,7 +34,7 @@ def run_one_shot(scenario_name="reach_avoid"): # treasure_hunt, reach_avoid
             print("waypoints after main:", waypoints.shape)
             print("all_u after main",all_u.shape)
         else:
-            messages, task_accomplished, waypoints, all_rho_np = main(pars)
+            messages, task_accomplished, waypoints, all_rho_np, all_u, spec = main(pars)
         # messages, task_accomplished, waypoints, all_rho_np = main(pars)     # Run the main program
         # messages, task_accomplished, waypoints, all_rho_np, spec = main(pars)   #for online
     except Exception as e:
@@ -43,6 +43,9 @@ def run_one_shot(scenario_name="reach_avoid"): # treasure_hunt, reach_avoid
         task_accomplished = False
         messages = []
         all_rho_np = None
+        waypoints = None  
+        all_u = None       
+        spec = None        
 
     if pars.save_results:
         save_results(pars, messages, task_accomplished, waypoints) # Save the results
@@ -112,11 +115,18 @@ def run_one_shot(scenario_name="reach_avoid"): # treasure_hunt, reach_avoid
         print("waypoint for simulation:", waypoints.shape)
         print("all_u for simulation", all_u.shape)
         simulate_deployment(waypoints, all_u, scenario=scenario,all_rho=all_rho_np, noise_std=pars.noise_std, spec_str=spec, 
-                            spec_str_phase2=newspec, switch_step=9,dt=pars.dt,max_acc=pars.max_acc, max_speed=pars.max_speed,use_voice=True)
+                            spec_str_phase2=newspec, switch_step=5,dt=pars.dt,max_acc=pars.max_acc, max_speed=pars.max_speed,use_voice=True)
     elif pars.deploy_on_drone and deployment and (waypoints is not None):
         from basics.scenarios import Scenarios
         scenario = Scenarios(pars.scenario_name)
-        deploy(waypoints, scenario=scenario, all_rho=all_rho_np)
+        newspec = scenario.automated_translator_newspec if pars.automated_translator else None
+        deploy(waypoints, all_u, scenario=scenario, all_rho=all_rho_np,
+            spec_str=spec,
+            spec_str_phase2=newspec,
+            switch_step=9,
+            dt=pars.dt,
+            max_acc=pars.max_acc, max_speed=pars.max_speed,
+            use_online_mpc=True)
     return messages, task_accomplished, waypoints
 
 

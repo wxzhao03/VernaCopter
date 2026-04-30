@@ -27,6 +27,7 @@ class Scenarios:
         self.automated_user_input = self.get_automated_user_input()
         self.automated_translator_spec = self.get_automated_translator_spec()
         self.automated_translator_newspec = self.get_automated_translator_newspec()
+        self.objects_phase2 = self.get_objects_phase2()
 
     def get_starting_state(self):
         """
@@ -78,13 +79,13 @@ class Scenarios:
                 # "obstacle": (-0.2,0.5 , -0.2, 0.5, -10., 10.),
                "goal":      (1.5, 2.0, 1.5, 2.0, 0., 2.),
                "goal2":(1.5, 2.0, -2.0, -1.5, 0., 2.),
-    "obstacle1": (-2.5, -2, -1, -0.5, -10., 10.),
-    "obstacle2": (-1.5,  -1.0,  -1, -0.5, -10., 10.),
-    "obstacle3": (-0.5,  0.0,  -1, -0.5, -10., 10.),
-    "obstacle4": (0.5,  1.0,  -1, -0.5, -10., 10.),
-    "obstacle5": (1.5,  2.0,  -1, -0.5, -10., 10.),
-    
-
+               "obstacle1": (-1, -0.5, 0.5, 1, -10., 10.),
+              "obstacle2": (0,  0.5,  -1, -0.5, -10., 10.),
+    # "obstacle1": (-2.5, -2, -1, -0.5, -10., 10.),
+    # "obstacle2": (-1.5,  -1.0,  -1, -0.5, -10., 10.),
+    # "obstacle3": (-0.5,  0.0,  -1, -0.5, -10., 10.),
+    # "obstacle4": (0.5,  1.0,  -1, -0.5, -10., 10.),
+    # "obstacle5": (1.5,  2.0,  -1, -0.5, -10., 10.),
             }
 
         elif self.scenario_name == "treasure_hunt":
@@ -99,6 +100,18 @@ class Scenarios:
                        "above_door_wall": (0., 0.5, -2.5, -1, 2.5, 3.),
                        }
 
+        return objects
+    
+        
+    def get_objects_phase2(self):
+        if self.scenario_name == "reach_avoid":
+            objects = {
+                "goal":      (1.5, 2.0, 1.5, 2.0, 0., 2.),
+                "goal2":     (1.5, 2.0, -2.0, -1.5, 0., 2.),
+                "obstacle1": (-1, -0.5, 0.5, 1, -10., 10.),
+                "obstacle2": (0,  0.5,  -1, -0.5, -10., 10.),
+                # "obstacle3": (0.5, 1.0, 0.5, 1.0, -10., 10.),  
+            }
         return objects
     
     def show_map(self):
@@ -165,10 +178,10 @@ class Scenarios:
             spec = (
             'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(20, 20) & '
             '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
-            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
-            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)'
+            # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)'
         )
             newspec =(
             'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
@@ -194,10 +207,17 @@ class Scenarios:
             newspec =(
             'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
             '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
-            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
-            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)')
+            # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)')
+            # newspec =(
+            # 'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(20, 20) & '
+            # '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
+            # # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
+            # # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
+            # 'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)')
         elif self.scenario_name == "treasure_hunt":
             newspec = ''
         else:

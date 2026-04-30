@@ -334,7 +334,7 @@ def main(pars=Default_parameters()):
     if hasattr(pars, 'use_simulation') and pars.use_simulation:
         return messages, task_accomplished, all_x, all_rho_np, all_u, spec
     else:
-        return messages, task_accomplished, all_x, all_rho_np
+        return messages, task_accomplished, all_x, all_rho_np, all_u, spec
     # return messages, task_accomplished, all_x, all_rho_np, all_u
     #for online
     # return messages, task_accomplished, all_x, all_rho_np, spec     
