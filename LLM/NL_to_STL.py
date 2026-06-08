@@ -1,5 +1,6 @@
 from .GPT import *
 from STL.STL_to_path import *
+from .voice_openai import VoiceOpenAI
 import os
 from basics.logger import color_text
 
@@ -76,7 +77,7 @@ class NL_to_STL:
         str
             Extracted STL specification.
         """
-        print("Extracting the specification...")
+        # print("Extracting the specification...")
         response = messages[-1]['content']
         spec = self.extract_spec(response)
         return spec
@@ -132,26 +133,39 @@ class NL_to_STL:
                 })    
             response = self.gpt.chatcompletion(messages)
             messages.append({"role": "assistant", "content": response})
-            print(color_text("Assistant:", 'cyan'), response)
+            # print(color_text("Assistant:", 'cyan'), response)
         else:
             if not automated_user:
-                print("Please specify the task. Type 'quit' to exit conversation and generate the final trajectory.")
-                for _ in range(max_inputs):
-                    user_input = input(color_text("User: ", 'orange'))
+                first_attempt = True
+                while True:
+                    voice = VoiceOpenAI()
+                    if first_attempt:
+                        voice.speak("Please state your task.")
+                        first_attempt = False
+                    user_input = voice.listen()
+                    voice.close()
+                    print(color_text(f"User: {user_input}", 'orange'))
 
-                    if user_input.lower() == 'quit':
-                        print(color_text("Exited conversation", 'yellow'))
-                        status = "exited"
-                        break
+                    messages_attempt = messages + [{"role": "user", "content": user_input}]
+                    for _ in range(max_inputs):
+                        response = self.gpt.chatcompletion(messages_attempt)
+                        messages_attempt.append({"role": "assistant", "content": response})
+                        # print(color_text("Assistant:", 'cyan'), response)
 
-                    messages.append({"role": "user", "content": user_input})
-                    response = self.gpt.chatcompletion(messages)
-                    messages.append({"role": "assistant", "content": response})
-                    print(color_text("Assistant:", 'cyan'), response)
+                        if "INVALID" in response:
+                            voice = VoiceOpenAI()
+                            voice.speak("I did not understand. Please state a valid task.")
+                            voice.close()
+                            break
+                        elif '<' in response:
+                            # print("The final response was generated.")
+                            messages = messages_attempt
+                            break
+                        else:
+                            messages_attempt.append({"role": "system", "content": "Please provide the specification now."})
+                            print("The final response was not generated correctly. Trying again...")
 
-                    # check if < or > symbol is present in the response and exit conversation if detected
-                    if '<' in response:
-                        print("The final response was generated.")
+                    if '<' in response and "INVALID" not in response:
                         break
             else:
                 print(color_text("Automated user: ", 'orange'), automated_user_input)
@@ -159,10 +173,10 @@ class NL_to_STL:
                 for _ in range(max_inputs):
                     response = self.gpt.chatcompletion(messages)
                     messages.append({"role": "assistant", "content": response})
-                    print(color_text("Assistant:", 'cyan'), response)
+                    # print(color_text("Assistant:", 'cyan'), response)
 
                     if '<' in response:
-                            print("The final response was generated.")
+                            # print("The final response was generated.")
                             break
                     else:
                         messages.append({"role": "system", "content": "Please provide the specification now."})
