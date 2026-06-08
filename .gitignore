@@ -28,6 +28,7 @@ venv.bak/
 
 # JSON files (e.g., configuration or output files)
 *.json
+!.vscode/*.json
 
 # Numpy array files (e.g., saved data arrays)
 *.npy
