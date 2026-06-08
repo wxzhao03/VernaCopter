@@ -190,9 +190,11 @@ class Visualizer:
         cmap = LinearSegmentedColormap.from_list('rho_colormap', ['#8B0000', '#FF0000', '#FFFF00', '#00FF00', '#006400'])
         colors = cmap(norm_rho)
         # Create 2D plot with adjusted margins
-        fig, ax = plt.subplots(figsize=(10, 10))
-        fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
-        ax.set_title('Trajectory with Risk Coloring')
+        fig, ax = plt.subplots(figsize=(7, 7))
+        # fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
+        # manager = plt.get_current_fig_manager()
+        # manager.window.setGeometry(0, 30, 700, 700)  # x=0 (leftmost), y=30 (below taskbar), w, h
+        # ax.set_title('Trajectory with Risk Coloring')
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_aspect('equal')
@@ -527,8 +529,11 @@ class Visualizer:
         colors_orig = cmap(norm_rho_orig)
         colors_new = cmap(norm_rho_new)
         
-        fig, ax = plt.subplots(figsize=(10, 10))
-        fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
+        # fig, ax = plt.subplots(figsize=(10, 10))
+        # fig.subplots_adjust(left=-0.025, bottom=0.042, right=0.95, top=0.978)
+        fig, ax = plt.subplots(figsize=(7, 7))
+        # manager = plt.get_current_fig_manager()
+        # manager.window.setGeometry(0, 30, 700, 700)
         
         ax.set_title('Trajectory Comparison with Risk Coloring')
         ax.set_xlabel('X')
