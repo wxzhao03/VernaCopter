@@ -28,6 +28,7 @@ class Scenarios:
         self.automated_translator_spec = self.get_automated_translator_spec()
         self.automated_translator_newspec = self.get_automated_translator_newspec()
         self.objects_phase2 = self.get_objects_phase2()
+        self.map_bounds = self.get_map_bounds()
 
     def get_starting_state(self):
         """
@@ -65,27 +66,12 @@ class Scenarios:
         # changed the heights such that the drone does not simply fly over all obstacles
         # when just making the obstacles higher, the drone will fly below them (through the ground..)
         if self.scenario_name == "reach_avoid":
-            # objects = {"goal": (4., 5., 4., 5., 0., 2.),
-            #            "obstacle1": (-3., -1., -0.5, 1.5, -10, 10.),
-            #            "obstacle2": (-4.5, -3., 0., 2.25, -10, 10.),
-            #            "obstacle3": (-2., -1., 4., 5., -10., 10),
-            #            "obstacle4": (3., 4., -3.5, -2.5, -10., 10.),
-            #            "obstacle5": (4., 5., 0., 1., -10., 10),
-            #            "obstacle6": (2., 3.5, 1.5, 2.5, -10., 10.),
-            #            "obstacle7": (-2., -1., -2., -1., -10., 10.),
-            #            }
             objects = {
-                # "goal":     (1.3, 2.0, 1.3, 2.0, 0., 2.),
-                # "obstacle": (-0.2,0.5 , -0.2, 0.5, -10., 10.),
-               "goal":      (1.5, 2.0, 1.5, 2.0, 0., 2.),
-               "goal2":(1.5, 2.0, -2.0, -1.5, 0., 2.),
-               "obstacle1": (-1, -0.5, 0.5, 1, -10., 10.),
-              "obstacle2": (0,  0.5,  -1, -0.5, -10., 10.),
-    # "obstacle1": (-2.5, -2, -1, -0.5, -10., 10.),
-    # "obstacle2": (-1.5,  -1.0,  -1, -0.5, -10., 10.),
-    # "obstacle3": (-0.5,  0.0,  -1, -0.5, -10., 10.),
-    # "obstacle4": (0.5,  1.0,  -1, -0.5, -10., 10.),
-    # "obstacle5": (1.5,  2.0,  -1, -0.5, -10., 10.),
+                "goal1":     (-2.5, -1.5, 1.5, 2.5, 0., 2.),
+                "goal2":     ( 1.5,  2.5, 1.5, 2.5, 0., 2.),
+                "obstacle1": (-1.5, -1.0, -0.25, 0.25, -10., 10.),
+                "obstacle2": ( 0.0,  0.5, -0.25, 0.25, -10., 10.),
+                "obstacle3": ( -0.5,  0.5, 1.75, 2.5, -10., 10.),
             }
 
         elif self.scenario_name == "treasure_hunt":
@@ -106,11 +92,11 @@ class Scenarios:
     def get_objects_phase2(self):
         if self.scenario_name == "reach_avoid":
             objects = {
-                "goal":      (1.5, 2.0, 1.5, 2.0, 0., 2.),
-                "goal2":     (1.5, 2.0, -2.0, -1.5, 0., 2.),
-                "obstacle1": (-1, -0.5, 0.5, 1, -10., 10.),
-                "obstacle2": (0,  0.5,  -1, -0.5, -10., 10.),
-                # "obstacle3": (0.5, 1.0, 0.5, 1.0, -10., 10.),  
+                "goal1":     (-2.5, -1.5, 1.5, 2.5, 0., 2.),
+                "goal2":     ( 1.5,  2.5, 1.5, 2.5, 0., 2.),
+                "obstacle1": (-1.5, -1.0, -0.25, 0.25, -10., 10.),
+                "obstacle2": ( 0.0,  0.5, -0.25, 0.25, -10., 10.),
+                "obstacle3": (-0.5,  0.5, 1.75, 2.5, -10., 10.),
             }
         return objects
     
@@ -137,7 +123,7 @@ class Scenarios:
             int: Time horizon for the scenario.
         """
         if self.scenario_name == "reach_avoid":
-            T = 30
+            T = 45
         elif self.scenario_name == "treasure_hunt":
             T = 70
         return T
@@ -150,7 +136,7 @@ class Scenarios:
             str: Task description for automated systems.
         """
         if self.scenario_name == "reach_avoid":
-            automated_user_input = "Reach the goal while avoiding all obstacles."
+            automated_user_input = "Reach goal2 while avoiding all obstacles."
         elif self.scenario_name == "treasure_hunt":
             automated_user_input = ("Go to the key in the first 30 seconds, then go to the chest. Avoid all walls. "
                                     "Stay in the room at all times. The door will open when you reach the key.")
@@ -176,20 +162,17 @@ class Scenarios:
         # )
         if self.scenario_name == "reach_avoid":
             spec = (
-            'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(20, 20) & '
+            'STL_formulas.inside_cuboid(objects["goal1"], name="goal1").always(20, 20) & '
             '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)'
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3")).always(0, 20)'
         )
-            newspec =(
+            newspec = (
             'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
             '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
             'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
-            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5")).always(0, 20)')
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3")).always(0, 20)'
+        )
         elif self.scenario_name == "treasure_hunt":
             spec = ''
         else:
@@ -204,22 +187,25 @@ class Scenarios:
             newspec: STL for automated systems.
         """
         if self.scenario_name == "reach_avoid":
-            newspec =(
+            newspec = (
             'STL_formulas.inside_cuboid(objects["goal2"], name="goal2").always(20, 20) & '
             '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)')
-            # newspec =(
-            # 'STL_formulas.inside_cuboid(objects["goal"], name="goal").always(20, 20) & '
-            # '(STL_formulas.outside_cuboid(objects["obstacle1"], name="!obstacle1") & '
-            # # 'STL_formulas.outside_cuboid(objects["obstacle5"], name="!obstacle5") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3") & '
-            # # 'STL_formulas.outside_cuboid(objects["obstacle4"], name="!obstacle4") & '
-            # 'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2")).always(0, 20)')
+            'STL_formulas.outside_cuboid(objects["obstacle2"], name="!obstacle2") & '
+            'STL_formulas.outside_cuboid(objects["obstacle3"], name="!obstacle3")).always(0, 20)'
+        )
         elif self.scenario_name == "treasure_hunt":
             newspec = ''
         else:
             newspec = ""
         return newspec
+
+    def get_map_bounds(self):
+        """
+        Returns (x_min, x_max, y_min, y_max, z_min, z_max) hard position limits for the solver.
+        None means no bound on that axis.
+        """
+        if self.scenario_name == "reach_avoid":
+            return (-np.inf, np.inf, -np.inf, 2.5, 0.0, np.inf)
+        elif self.scenario_name == "treasure_hunt":
+            return (-5.0, 5.0, -5.0, 5.0, 0.0, 3.0)
+        return None
