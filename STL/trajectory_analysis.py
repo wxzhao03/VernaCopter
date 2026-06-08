@@ -132,8 +132,8 @@ class TrajectoryAnalyzer:
             objects_inside[object] = inside_objects_array[i,:]
 
         if scenario_name == "reach_avoid":
-            # test if goal is reached
-            goal_reached = 1 in objects_inside['goal']
+            # test if any goal is reached
+            goal_reached = any(1 in objects_inside[obj] for obj in self.objects.keys() if 'goal' in obj)
 
             # test if any obstacle is crossed
             obstacles_avoided = True
@@ -185,7 +185,7 @@ class TrajectoryAnalyzer:
 
             task_accomplished = False
             if chest_reached and walls_avoided and not door_before_key:
-                print(color_text("Task accomplished:", 'green'), "All conditions are met.")
+                # print(color_text("Task accomplished:", 'green'), "All conditions are met.")
                 task_accomplished = True
             elif not chest_reached:
                 print(color_text("Task failed:", 'red'), "The chest was not reached.")
