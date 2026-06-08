@@ -1,106 +1,110 @@
 # -*- coding: utf-8 -*-
 """
-VAD-based voice listener using sounddevice + local Whisper.
+VAD-based voice listener using sounddevice + OpenAI Whisper API.
 Continuously records in background, detects speech via RMS,
-auto-stops after silence, outputs yes/no decision.
+auto-stops after silence, fires on_utterance callback with raw text.
 
 Usage:
-    listener = VoiceListener()   # loads model, starts background stream
-    listener.start_listening(user_decision)  # pass in the [None] flag
-    # ... user says yes/no, user_decision[0] gets set automatically
+    def on_utterance(text):
+        # handle raw transcription text
+        ...
+
+    listener = VoiceListener(on_utterance=on_utterance)  # starts background stream
+    # ... runs forever in background, calls on_utterance whenever speech detected
     listener.close()             # call when simulation ends
 """
 
+import io
+import time
+import wave
+import queue
 import threading
 import numpy as np
 import sounddevice as sd
-import whisper
+from openai import OpenAI
 
 # ── Tunable parameters ────────────────────────────────────────────────────────
 SAMPLE_RATE       = 16000   # Hz, Whisper expects 16k
-CHUNK_DURATION    = 1     # seconds per chunk
+CHUNK_DURATION    = 0.1     # seconds per chunk (smaller = more responsive)
 CHUNK_SAMPLES     = int(SAMPLE_RATE * CHUNK_DURATION)
-SILENCE_THRESHOLD = 80     # RMS below this = silence
-SILENCE_DURATION  = 0.5     # seconds of silence before cutting off
-SILENCE_CHUNKS    = int(SILENCE_DURATION / CHUNK_DURATION)  # = 1-2 chunks
-MAX_DURATION      = 5.0     # hard upper limit seconds
+SILENCE_THRESHOLD = 500    # RMS below this = silence
+SILENCE_DURATION  = 0.4     # seconds of silence before cutting off
+SILENCE_CHUNKS    = int(SILENCE_DURATION / CHUNK_DURATION)
+MAX_DURATION      = 4.0     # hard upper limit seconds
 MAX_CHUNKS        = int(MAX_DURATION / CHUNK_DURATION)
-
-YES_WORDS = ['yes', 'yeah', 'sure', 'okay', 'yep', 'accept']
-NO_WORDS  = ['no',  'nope', 'reject', 'cancel']
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 class VoiceListener:
     """
-    Loads Whisper model once at init, keeps sounddevice stream open.
-    Call start_listening(user_decision) when a decision is needed.
-    The background thread sets user_decision[0] = 'accepted'/'rejected'.
+    Always-on VAD listener. Uses OpenAI Whisper-1 API for transcription.
+    Keeps a single sd.InputStream open for the lifetime of the object to
+    avoid repeated open/close errors (Windows MME). Fires on_utterance(text)
+    callback whenever speech is detected and transcribed.
     """
 
-    def __init__(self, model_size='base'):
-        print(f"[Voice] Loading Whisper {model_size} model...")
-        self.model = whisper.load_model(model_size)
-        print("[Voice] Whisper ready.")
+    def __init__(self, on_utterance=None):
+        self.client       = OpenAI()
+        self.on_utterance = on_utterance
 
-        self._active      = [False]   # True when we're collecting audio
-        self._user_dec    = [None]    # reference to current user_decision list
+        self._active      = [True]
+        self._user_dec    = [None]
         self._lock        = threading.Lock()
         self._closed      = False
+        self._audio_queue = queue.Queue()
 
-        # Start the background recording thread immediately
+        # Open stream once and keep it alive
+        self._stream = sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype='int16',
+            blocksize=CHUNK_SAMPLES,
+            callback=self._audio_callback,
+        )
+        self._stream.start()
+
         self._thread = threading.Thread(target=self._recording_loop, daemon=True)
         self._thread.start()
+        # print("[Voice] Always-on listening started (OpenAI Whisper API).")
+
+    def _audio_callback(self, indata, _frames, _time_info, status):
+        if status:
+            print(f"[VAD] stream status: {status}")
+        self._audio_queue.put(indata[:, 0].copy())
 
     def start_listening(self, user_decision_ref):
-        """
-        Tell the background loop to start collecting audio for a decision.
-        user_decision_ref is the [None] list from simulate_deployment.
-        """
         with self._lock:
             self._user_dec = user_decision_ref
-            self._active[0] = True
-        print("[Voice] 🎤 Listening for YES or NO...")
 
     def stop_listening(self):
-        with self._lock:
-            self._active[0] = False
+        pass
 
     def close(self):
         self._closed = True
+        self._stream.stop()
+        self._stream.close()
 
     def _recording_loop(self):
         """
-        Continuously runs in background.
-        When _active is True, collects chunks, detects speech,
-        transcribes on silence, sets user_decision.
+        Reads chunks from the audio queue (filled by sd.InputStream callback),
+        detects speech via RMS VAD, transcribes on silence.
         """
         while not self._closed:
-            with self._lock:
-                active = self._active[0]
-
-            if not active:
-                # idle — sleep briefly and poll again
-                threading.Event().wait(0.05)
-                continue
-
             # ── Collect one utterance ─────────────────────────────────────
-            buffer        = []
-            silent_chunks = 0
+            buffer         = []
+            silent_chunks  = 0
             speech_started = False
 
             for _ in range(MAX_CHUNKS):
-                with self._lock:
-                    if not self._active[0]:
-                        break   # decision already made by keyboard
+                if self._closed:
+                    return
 
-                # Record one chunk via sounddevice
-                chunk = sd.rec(CHUNK_SAMPLES, samplerate=SAMPLE_RATE,
-                               channels=1, dtype='int16', blocking=True)
-                chunk = chunk.flatten()
+                try:
+                    chunk = self._audio_queue.get(timeout=1.0)
+                except queue.Empty:
+                    continue
 
                 rms = np.sqrt(np.mean(chunk.astype(np.float32) ** 2))
-                print(f"[VAD] chunk rms={rms:.1f} speech_started={speech_started} silent_chunks={silent_chunks}")
 
                 if rms > SILENCE_THRESHOLD:
                     speech_started = True
@@ -108,40 +112,55 @@ class VoiceListener:
                     buffer.append(chunk)
                 elif speech_started:
                     silent_chunks += 1
-                    buffer.append(chunk)  # include trailing silence for natural cut
+                    buffer.append(chunk)
                     if silent_chunks >= SILENCE_CHUNKS:
-                        break  # enough silence after speech → stop
-                # if speech hasn't started yet, just keep polling (don't buffer)
+                        break
+                # if speech hasn't started, keep polling without buffering
 
             if not buffer:
-                continue  # nothing recorded, loop again
+                continue
 
-            # ── Transcribe ────────────────────────────────────────────────
-            audio_np = np.concatenate(buffer).astype(np.float32) / 32768.0
+            # ── Transcribe via OpenAI Whisper API ─────────────────────────
+            audio_int16 = np.concatenate(buffer)
+            audio_secs  = len(audio_int16) / SAMPLE_RATE
+            print(f"[Voice] Transcribing {audio_secs:.2f}s of audio...")
+            t0 = time.time()
             try:
-                result = self.model.transcribe(audio_np, language='en', fp16=False)
-                text   = result['text'].strip().lower()
+                # Pack int16 samples into an in-memory WAV so the API can read it
+                wav_buf = io.BytesIO()
+                with wave.open(wav_buf, 'wb') as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)          # int16 = 2 bytes
+                    wf.setframerate(SAMPLE_RATE)
+                    wf.writeframes(audio_int16.tobytes())
+                wav_buf.seek(0)
+                wav_buf.name = 'audio.wav'      # API requires a filename hint
+
+                transcript = self.client.audio.transcriptions.create(
+                    model='whisper-1',
+                    file=wav_buf,
+                    language='en',
+                    prompt=(
+                        "obstacle 1, obstacle 2, obstacle 3, obstacle 4, "
+                        "goal 1, goal 2, goal 3, "
+                        "yes, no, accept, reject"
+                    ),
+                )
+                text = transcript.text.strip().lower()
+                print(f"[Voice] Transcription took {time.time()-t0:.2f}s → '{text}'")
+                if not text:
+                    continue
                 print(f"[Voice] You said: '{text}'")
             except Exception as e:
                 print(f"[Voice] Transcription error: {e}")
                 continue
 
-            # ── Classify ──────────────────────────────────────────────────
-            with self._lock:
-                dec_ref = self._user_dec
-                still_waiting = self._active[0] and dec_ref[0] == 'waiting'
+            if not text:
+                continue
 
-            if still_waiting:
-                if any(w in text for w in YES_WORDS):
-                    with self._lock:
-                        dec_ref[0]      = 'accepted'
-                        self._active[0] = False
-                    print("[Voice] Accepted.")
-                elif any(w in text for w in NO_WORDS):
-                    with self._lock:
-                        dec_ref[0]      = 'rejected'
-                        self._active[0] = False
-                    print("[Voice] Rejected.")
-                else:
-                    print("[Voice] Please say YES or NO.")
-                    # loop continues, collect another utterance
+            # ── Fire callback ─────────────────────────────────────────────
+            if self.on_utterance is not None:
+                try:
+                    self.on_utterance(text)
+                except Exception as e:
+                    print(f"[Voice] Callback error: {e}")
