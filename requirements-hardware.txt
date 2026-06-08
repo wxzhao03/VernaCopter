@@ -1,0 +1,5 @@
+# Additional dependencies for real drone deployment only
+# Install after requirements.txt: pip install -r requirements-hardware.txt
+
+cflib>=0.1.27
+motioncapture>=2024.11.0

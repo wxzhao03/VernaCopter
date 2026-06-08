@@ -6,3 +6,6 @@ pybullet>=3.2.6
 Pillow>=10.3.0
 gurobipy>=11.0.1
 stlpy>=0.3.0
+sounddevice>=0.4.6
+pyaudio>=0.2.14
+pygame>=2.5.0
