@@ -102,11 +102,12 @@ class STLSolver:
         Runtime (float): Solver execution time in seconds.
     """
 
-    def __init__(self, spec, objects, x0 = np.zeros(6,), T=10):
+    def __init__(self, spec, objects, x0 = np.zeros(6,), T=10, map_bounds=None):
         self.objects = objects
         self.spec = spec
         self.x0 = x0
         self.T = T
+        self.map_bounds = map_bounds
 
     def generate_trajectory(self, dt, max_acc, max_speed, verbose = False, include_dynamics=True, rho_min=0.0, obstacle_adjustments=None):
         self.dt = dt
@@ -124,14 +125,25 @@ class STLSolver:
         R = np.eye(3)           # control cost : penalize control effort
 
         N = int(self.T/self.dt)
+        # print(f"[generate_trajectory debug] self.T={self.T}, self.dt={self.dt}, N={N}")
         # Pass rho_min to the solver
         solver = GurobiMICPSolver(eval(self.spec), sys, self.x0, N, verbose=self.verbose, rho_min=rho_min, obstacle_adjustments=obstacle_adjustments, objects=self.objects)
+        solver.model.setParam('DualReductions', 0)
+        # print(f"solver N={N}")
         solver.AddQuadraticCost(Q=Q, R=R)
         u_min = -dynamics.max_acc*np.ones(3,)  # minimum acceleration
         u_max = dynamics.max_acc*np.ones(3,)   # maximum acceleration
         solver.AddControlBounds(u_min, u_max)
-        state_bounds = np.array([np.inf, np.inf, np.inf, self.max_speed, self.max_speed, self.max_speed])
-        solver.AddStateBounds(-state_bounds, state_bounds)
+        x_min_pos = np.array([-np.inf, -np.inf, -np.inf])
+        x_max_pos = np.array([ np.inf,  np.inf,  np.inf])
+        if self.map_bounds is not None:
+            bx_min, bx_max, by_min, by_max, bz_min, bz_max = self.map_bounds
+            x_min_pos = np.array([bx_min, by_min, bz_min])
+            x_max_pos = np.array([bx_max, by_max, bz_max])
+        vel_bound = self.max_speed * np.ones(3)
+        state_lb = np.concatenate([x_min_pos, -vel_bound])
+        state_ub = np.concatenate([x_max_pos,  vel_bound])
+        solver.AddStateBounds(state_lb, state_ub)
         
         try:
             x, u, rho_global, rho_time_series, Runtime = solver.Solve()
