@@ -1,107 +1,84 @@
-# VernaCopter
-
-**Author**: **Teun van de Laar** ([tavdlaar@gmail.com](mailto:tavdlaar@gmail.com)), **Jake Rap** ([j.e.w.rap@tue.nl](mailto:j.e.w.rap@tue.nl)), & **Sofie Haesaert**
-
-![Blender_trajectory_cropped_2](https://github.com/user-attachments/assets/933817f1-721d-40bd-854a-4e9ebd1ba113)
-
-This repository presents the code for VernaCopter, a framework for natural language-based drone control. The framework leverages large language models (LLMs) to translate task specifications in natural language into Signal Temporal Logic (STL) specifications. These specifications operate on user-defined objects and are used for trajectory optimization.
-
-## Table of Contents
-1. [Abstract](#abstract)
-2. [Installation](#installation)
-3. [Usage](#usage)
-4. [Configuration](#configuration)
-5. [Authors and Acknowledgments](#authors-and-acknowledgments)
-6. [Contact Information](#contact-information)
-
-## Paper
-
-The original paper can be found on [this webpage](https://www.arxiv.org/abs/2409.09536).
-
-Abstract:
-The ability to control robots was traditionally chiefly attributed to experts. However, the recent emergence of Large Language Models (LLMs) enables users to command robots using LLMs’ exceptional natural language processing abilities. Previous studies applied LLMs to convert tasks in natural language into robot controllers using a set of predefined high-level operations. However, this approach does not guarantee safety or optimality. This thesis introduces VernaCopter, a system that empowers non-technical users to control quadrocopters using natural language. Signal Temporal Logic (STL) functions as an intermediate representation of tasks specified in natural language. The LLM is responsible for task planning, whereas formal methods handle motion planning, addressing the abovementioned limitations. Automatic LLM-based syntax and semantics checkers are employed to improve the quality of STL specifications. The system’s performance was tested in experiments in varying scenarios, varying user involvement, and with and without automatic checkers. The experiments showed that including the user in conversation improves performance. Furthermore, the specific LLM used plays a significant role in the performance, while the checkers do not benefit the system due to frequent miscorrections.
-
 ## Installation
 
 ### Prerequisites
 
-Before starting, ensure you have the following:
-- Python 3.10 or higher.
-- An OpenAI API key. If you don't have one, you can sign up and obtain it from [OpenAI](https://beta.openai.com/signup/).
-- [Gurobi](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer) installed and set up. Gurobi is free for academic use.
+- Python 3.10
+- An OpenAI API key ([sign up here](https://beta.openai.com/signup/))
+- [Gurobi](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer) license (free for academic use)
 
-### Steps to Install
+### Simulation (no hardware required)
 
-1. **Clone the Repository**:
-Clone this repository and the stlpy repository
+1. **Clone the repository**:
 ```bash
-git clone https://github.com/shaesaert/VernaCopter.git
-git clone https://github.com/shaesaert/stlpy.git
-
+git clone https://github.com/wxzhao03/VernaCopter.git
+git clone https://github.com/wxzhao03/stlpy.git
 cd VernaCopter
 ```
 
 2. **Create a virtual environment**:
-
 ```bash
 conda create -n vernacopter_env python=3.10 -y
-
 conda activate vernacopter_env
 ```
 
+3. **Install dependencies**:
 
-
-3. **Install the Dependencies**:
-First go to the folder of stlpy and run
-```bash 
+First install stlpy from the cloned folder:
+```bash
+cd ../stlpy
 pip install -e .
+cd ../VernaCopter
 ```
-Then go to the folder of Vernacopter and run
-```bash 
+
+Then install the remaining dependencies:
+```bash
 pip install -r requirements.txt
 ```
 
-4. **Configure the OpenAI API Key (Set your OpenAI API key as an environment variable)**:
+4. **Set environment variables**:
+
+Run these once — they will be loaded automatically every time you activate the environment. Then re-activate to apply them in the current session.
+```bash
+conda env config vars set OPENAI_API_KEY="your_openai_api_key" PYTHONUTF8=1
+conda activate vernacopter_env
+```
+
+### Real Drone Deployment (additional setup)
+
+If you want to fly a real Crazyflie drone, complete the simulation setup first, then install the hardware dependencies:
 
 ```bash
-export OPENAI_API_KEY="your_openai_api_key"
+pip install -r requirements-hardware.txt
 ```
+
+> **Note:** If you are on Python 3.10 + Windows 64-bit, `motioncapture` may need to be recompiled from source. 
+
 
 ## Usage
 
-### Running the default example
-
-To test the system interactively, run:
-
-```bash
-python -m examples.default_example
-```
-
-### Running in Automatic Mode
-
-For a one-shot example that runs without interaction:
+Run the system with:
 
 ```bash
 python -m examples.one_shot_automatic
 ```
 
-### Expected Output
+### Configuration
 
-The program will:
+Adjust the flags in [basics/config.py](basics/config.py) under `One_shot_parameters` to switch between modes:
 
-1. Prompt you to specify tasks in natural language (default example).
-2. Generate and optimize a trajectory based on the STL specifications.
-3. Display the drone's simulated behavior using PyBullet.
+**Input mode** — controls how the task is provided:
 
-## Configuration
+| `automated_user` | Behaviour |
+|---|---|
+| `False` | Voice input from microphone |
+| `True` | Uses predefined task |
 
-You can configure the following parameters in basics/setup.py:
+**Execution mode** — controls what happens after the trajectory is generated:
 
-- Maximum Acceleration: Adjust the drone's maximum allowed acceleration.
-- Speed: Set the drone's top speed.
-- Scenario Options: Define the objects and environment for task execution.
+| `use_simulation` | Behaviour |
+|---|---|
+| `True` | PyBullet simulation |
 
-Other configuration options can be found in basics/setup.py
 
 ## Authors and Acknowledgments
 
