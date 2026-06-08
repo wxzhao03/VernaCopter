@@ -8,7 +8,7 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.utils.reset_estimator import reset_estimator
 
-DRONE_URI = 'radio://0/80/2M/E7E7E7E711'  
+DRONE_URI = 'radio://0/80/2M/E7E7E7E701'  
 DRONE_NAME = 'cf11'  
 VICON_HOST = '10.128.7.250'  
 
@@ -84,7 +84,7 @@ class InteractiveDroneController:
         self.mocap_wrapper.on_pose = send_pose
     
     def _setup_estimator(self):
-        self.cf.param.set_value('locSrv.extQuatStdDev', 8.0e-3)
+        self.cf.param.set_value('locSrv.extQuatStdDev', 0.06)
         self.cf.param.set_value('stabilizer.estimator', '2')
         self.cf.param.set_value('commander.enHighLevel', '1')
         time.sleep(0.5)
@@ -93,14 +93,14 @@ class InteractiveDroneController:
     
     def arm(self):
         try:
-            self.cf.platform.send_arming_request(True)
+            self.cf.supervisor.send_arming_request(True)
         except Exception:
             pass
         time.sleep(1.0)
     
     def disarm(self):
         try:
-            self.cf.platform.send_arming_request(False)
+            self.cf.supervisor.send_arming_request(False)
         except Exception:
             pass
     
