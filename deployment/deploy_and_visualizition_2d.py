@@ -60,6 +60,39 @@ class MocapWrapper(Thread):
                     if self.on_pose:    
                         self.on_pose([pos[0], pos[1], pos[2], obj.rotation])
 
+def rho_to_wrgb8888(rho_val):
+    """colormap map rho value to Color LED deck (wrgb8888)"""
+    from matplotlib.colors import LinearSegmentedColormap
+    
+    cmap = LinearSegmentedColormap.from_list('rho_colormap',
+        ['#8B0000', '#FF0000', '#FFFF00', '#00FF00', '#006400'])
+    
+    if rho_val <= 0.5:
+        norm_val = 0.0
+    elif rho_val <= 1.0:
+        norm_val = (rho_val - 0.5) / 0.5 * 0.5
+    elif rho_val <= 1.5:
+        norm_val = 0.5 + (rho_val - 1.0) / 0.5 * 0.5
+    else:
+        norm_val = 1.0
+    
+    r, g, b, _ = cmap(norm_val)
+    R, G, B, W = int(r * 255), int(g * 255), int(b * 255), 0
+    return (W << 24) | (R << 16) | (G << 8) | B
+
+
+def set_color_led_bot(cf, rho_val):
+    wrgb = rho_to_wrgb8888(rho_val)
+    cf.param.set_value('colorLedBot.wrgb8888', str(wrgb))
+
+def set_color_led_ring(cf, mem, rho_val):
+    wrgb = rho_to_wrgb8888(rho_val)
+    R = (wrgb >> 16) & 0xFF
+    G = (wrgb >> 8) & 0xFF
+    B = wrgb & 0xFF
+    for i in range(12):
+        mem[0].leds[i].set(r=R, g=G, b=B)
+    mem[0].write_data(None)
 
 def send_extpose_quat(cf, x, y, z, quat, send_full_pose: bool):
     if send_full_pose:
@@ -82,39 +115,64 @@ def activate_mellinger_controller(cf):
     cf.param.set_value('stabilizer.controller', '2')  # Mellinger
 
 # Updated default scale factor
-def transform_wp_to_projector(x_old, y_old, scale_xy=0.3):
+def transform_wp_to_projector(x_old, y_old, scale_xy=0.485):
     return x_old * scale_xy, y_old * scale_xy
 
 # Execute waypoint sequence
-def run_sequence(cf, waypoints: str, waypoint_duration: float = 0.75):
+def run_sequence(cf, waypoints, waypoint_duration=0.75, all_rho=None):
+    from cflib.crazyflie.mem import MemoryElement
     commander = cf.high_level_commander
+
+    # 初始化LED ring
+    cf.param.set_value('ring.effect', '13')
+    time.sleep(0.3)
+    mem = cf.mem.get_mems(MemoryElement.TYPE_DRIVER_LED)
 
     if waypoints is None:
         waypoints = np.load("/home/amc/crazyflie-lib-python/examples/mocap/4_waypoints.npy")
 
     try:
-        # Step through every other waypoint (matching your original [::2, :])
-        for wp in waypoints.T[::2, :]:
+        wp_indices = list(range(0, waypoints.shape[1], 2))
+
+        for step, wp in enumerate(waypoints.T[::2, :]):
+            if all_rho is not None and step < len(wp_indices) and len(mem) > 0:
+                rho_idx = wp_indices[step]
+                rho_val = float(all_rho[min(rho_idx, len(all_rho) - 1)])
+                set_color_led_ring(cf, mem, rho_val)
+
             x, y = transform_wp_to_projector(wp[0], wp[1])
-            z = 0.0 * wp[2] / 2 + 0.15 
-            # z = wp[2]
+            z = 0.0 * wp[2] / 2 + 0.15
             commander.go_to(x, y, z, yaw=0.0, duration_s=waypoint_duration)
             time.sleep(waypoint_duration)
     except Exception:
-        # Stop current setpoint stream if something goes wrong mid-flight
         commander.send_stop_setpoint()
         raise
     finally:
-        # Land and stop either way
         commander.land(0.0, 2.0)
         time.sleep(2.0)
         commander.stop()
+        try:
+            if len(mem) > 0:
+                for i in range(12):
+                    mem[0].leds[i].set(r=0, g=0, b=0)
+                mem[0].write_data(None)
+        except Exception:
+            pass
 
 
 def deploy(
-    waypoints = None,
-    scenario = None,      
-    all_rho = None,
+    waypoints=None,
+    all_u=None,
+    scenario=None,
+    all_rho=None,
+    spec_str=None,
+    spec_str_phase2=None,
+    switch_step=None,
+    dt=0.7,
+    max_acc=10,
+    max_speed=0.5,
+    use_online_mpc=False,
+    use_voice=False,
     drone_name: str = 'cf11',
     host_name: str = '10.128.7.250',
     send_full_pose: bool = True,
@@ -125,7 +183,7 @@ def deploy(
     Connects to Crazyflie and Vicon, streams external pose, flies a waypoint sequence,
     and shuts everything down cleanly.
     """
-    uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E711') # TODO: make this into a variable
+    uri = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E701') # TODO: make this into a variable
 
     # Drivers once per process
     cflib.crtp.init_drivers()
@@ -152,13 +210,13 @@ def deploy(
 
             # Arm (platform API present on newer firmwares; fall back to legacy if needed)
             try:
-                cf.platform.send_arming_request(True)
+                cf.supervisor.send_arming_request(True)
             except Exception:
                 pass
             time.sleep(1.0)
             # Coordinate calibration: align planned trajectory with actual drone position
             if scenario is not None and waypoints is not None:
-                scale_xy = 0.3
+                scale_xy = 0.485
                 commander = cf.high_level_commander
     
                 print("take off and moving drone to starting position")
@@ -202,17 +260,17 @@ def deploy(
                     fig, ax = visualizer.visualize_trajectory()
                 
                 plt.show(block=False)
-                mng = plt.get_current_fig_manager()
+                # mng = plt.get_current_fig_manager()
 
-                try:
-                    if hasattr(mng, 'window') and hasattr(mng.window, 'state'):
-                        mng.window.state('zoomed')
-                        print("✓ Window maximized (Tk)")
-                    elif hasattr(mng, 'window') and hasattr(mng.window, 'showMaximized'):
-                        mng.window.showMaximized()
-                        print("✓ Window maximized (Qt)")
-                except Exception as e:
-                    print(f"⚠ Could not maximize: {e}")
+                # try:
+                #     if hasattr(mng, 'window') and hasattr(mng.window, 'state'):
+                #         mng.window.state('zoomed')
+                #         print("✓ Window maximized (Tk)")
+                #     elif hasattr(mng, 'window') and hasattr(mng.window, 'showMaximized'):
+                #         mng.window.showMaximized()
+                #         print("✓ Window maximized (Qt)")
+                # except Exception as e:
+                #     print(f"⚠ Could not maximize: {e}")
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()
@@ -260,7 +318,7 @@ def deploy(
                 def flight_mission():
                     nonlocal flight_error
                     try:
-                        run_sequence(cf, waypoints)
+                        run_sequence(cf, waypoints, all_rho=all_rho)
                     except Exception as e:
                         flight_error = e
                         print(f"Flight error: {e}")
@@ -290,11 +348,11 @@ def deploy(
                     fig.canvas.draw()
                     fig.canvas.flush_events()
             else:
-                run_sequence(cf, waypoints)
+                run_sequence(cf, waypoints, all_rho=all_rho)
 
             # Disarm
             try:
-                cf.platform.send_arming_request(False)
+                cf.supervisor.send_arming_request(False)
             except Exception:
                 pass
 
