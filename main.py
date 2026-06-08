@@ -65,6 +65,24 @@ def main(pars=Default_parameters()):
 
     if pars.show_map: scenario.show_map()       # Display the map if enabled
 
+    if not pars.automated_user:
+        dummy_x = np.expand_dims(x0, axis=1)
+        map_visualizer = Visualizer(dummy_x, scenario)
+        fig_map, ax_map = plt.subplots(figsize=(7, 7))
+        ax_map.set_xlabel('X')
+        ax_map.set_ylabel('Y')
+        ax_map.set_aspect('equal')
+        ax_map.grid(True, alpha=0.3)
+        ax_map.set_title('Scenario Map')
+        ax_map.scatter(x0[0], x0[1], c='blue', marker='o', s=60, zorder=10, label='Start')
+        if scenario.scenario_name == "reach_avoid":
+            map_visualizer._visualize_reach_avoid_2d(ax_map, show_labels=True)
+        elif scenario.scenario_name == "treasure_hunt":
+            map_visualizer._visualize_treasure_hunt_2d(ax_map, show_labels=True)
+        ax_map.legend(loc='upper right')
+        plt.show(block=False)
+        plt.pause(0.1)
+
     # Translator for natural language to STL
     translator = NL_to_STL(scenario.objects, 
                            N, 
@@ -113,12 +131,12 @@ def main(pars=Default_parameters()):
                 # Use syntax-checked STL specification
                 spec = syntax_checked_spec
                 syntax_checked_spec = None
-        print("Extracted specification: ", spec)
+        # print("Extracted specification: ", spec)
         try:
             objects = scenario.objects
             # Code that might raise an error
             specs = eval(spec)
-            print(specs.name)
+            # print(specs.name)
 
         except AttributeError:
             # Handles the case where .name doesn't exist
@@ -129,7 +147,8 @@ def main(pars=Default_parameters()):
             print(f"Something went wrong: {e}")
 
         # Initialize the solver with the STL specification
-        solver = STLSolver(spec, scenario.objects, x0, T,)
+        map_bounds = getattr(scenario, 'map_bounds', None)
+        solver = STLSolver(spec, scenario.objects, x0, T, map_bounds=map_bounds)
 
         print(color_text("Generating the trajectory...", 'yellow'))
         try:
@@ -141,69 +160,61 @@ def main(pars=Default_parameters()):
                 verbose=pars.solver_verbose, 
                 include_dynamics=True
                 )
-            print("x_final after sovler:", x.shape)
-            print("u_final after sovler:", u.shape)
-            print(f"u shape={u.shape}")
             # risk_time_series = risk_assessor.compute_risk_time_series(rho_time_series, x, u)
          
             # Display complete trajectory (position and velocity)
-            print("\nComplete State Trajectory (x, y, z, vx, vy, vz):")
-            header = f"{'Step':>6} {'Time(s)':>8} {'x':>7} {'y':>7} {'z':>7} {'vx':>7} {'vy':>7} {'vz':>7}"
-            print("-" * len(header))
-            print(header)
-            print("-" * len(header))
-            if x is not None:
-                for t in range(x.shape[1]):
-                    time_sec = t * pars.dt
-                    x_val = x[0, t]
-                    y_val = x[1, t]
-                    z_val = x[2, t]
-                    vx_val = x[3, t]
-                    vy_val = x[4, t]
-                    vz_val = x[5, t]
+            # print("\nComplete State Trajectory (x, y, z, vx, vy, vz):")
+            # header = f"{'Step':>6} {'Time(s)':>8} {'x':>7} {'y':>7} {'z':>7} {'vx':>7} {'vy':>7} {'vz':>7}"
+            # print("-" * len(header))
+            # print(header)
+            # print("-" * len(header))
+            # if x is not None:
+            #     for t in range(x.shape[1]):
+            #         time_sec = t * pars.dt
+            #         x_val = x[0, t]
+            #         y_val = x[1, t]
+            #         z_val = x[2, t]
+            #         vx_val = x[3, t]
+            #         vy_val = x[4, t]
+            #         vz_val = x[5, t]
 
-                    print(f"{t:>6} {time_sec:>8.2f} "
-                          f"{x_val:>7.2f} {y_val:>7.2f} {z_val:>7.2f} "
-                          f"{vx_val:>7.2f} {vy_val:>7.2f} {vz_val:>7.2f}")
+            #         print(f"{t:>6} {time_sec:>8.2f} "
+            #               f"{x_val:>7.2f} {y_val:>7.2f} {z_val:>7.2f} "
+            #               f"{vx_val:>7.2f} {vy_val:>7.2f} {vz_val:>7.2f}")
             
             #print u after solver
-            print("\nComplete Control Input (ax, ay, az):")
-            print(f"{'Step':>6} {'Time(s)':>8} {'ax':>8} {'ay':>8} {'az':>8}")
-            print("-" * 46)
-            for t in range(u.shape[1]):
-                print(f"{t:>6} {t*pars.dt:>8.2f} "
-                    f"{u[0,t]:>8.4f} {u[1,t]:>8.4f} {u[2,t]:>8.4f}")
-            print(f"\nN=int(T/dt)=int({scenario.T_initial}/{pars.dt})={int(scenario.T_initial/pars.dt)}")
+            # print("\nComplete Control Input (ax, ay, az):")
+            # print(f"{'Step':>6} {'Time(s)':>8} {'ax':>8} {'ay':>8} {'az':>8}")
+            # print("-" * 46)
+            # for t in range(u.shape[1]):
+            #     print(f"{t:>6} {t*pars.dt:>8.2f} "
+            #         f"{u[0,t]:>8.4f} {u[1,t]:>8.4f} {u[2,t]:>8.4f}")
+            # print(f"\nN=int(T/dt)=int({scenario.T_initial}/{pars.dt})={int(scenario.T_initial/pars.dt)}")
             
-            print(f"Runtime: {Runtime:.4f}")
-            print(f"Global Rho: {rho_global:.4f}")
+            # print(f"Runtime: {Runtime:.4f}")
+            # print(f"Global Rho: {rho_global:.4f}")
 
             #Display complete robustness values
-            print("\nComplete Rho Time Series:")
-            print(f"{'Step':>6} {'Time(s)':>8} {'Rho':>10} {'Position(x,y,z)':>20} {'velocity(x,y,z)':>20} {'acceleration(x,y,z)':>20}")
-            for t in range(len(rho_time_series)):
-                time_sec = t * pars.dt
-                pos = f"({x[0,t]:.2f}, {x[1,t]:.2f}, {x[2,t]:.2f})"
-                vel = f"({x[3,t]:.2f}, {x[4,t]:.2f}, {x[5,t]:.2f})"
-                acc = f"({u[0,t]:.2f}, {u[1,t]:.2f}, {u[2,t]:.2f})"
-                print(f"{t:>6} {time_sec:>8.2f} {rho_time_series[t]:>10.4f} {pos:>20} {vel:>20} {acc:>20}")
+            # print("\nComplete Rho Time Series:")
+            # print(f"{'Step':>6} {'Time(s)':>8} {'Rho':>10} {'Position(x,y,z)':>20} {'velocity(x,y,z)':>20} {'acceleration(x,y,z)':>20}")
+            # for t in range(len(rho_time_series)):
+            #     time_sec = t * pars.dt
+            #     pos = f"({x[0,t]:.2f}, {x[1,t]:.2f}, {x[2,t]:.2f})"
+            #     vel = f"({x[3,t]:.2f}, {x[4,t]:.2f}, {x[5,t]:.2f})"
+            #     acc = f"({u[0,t]:.2f}, {u[1,t]:.2f}, {u[2,t]:.2f})"
+            #     print(f"{t:>6} {time_sec:>8.2f} {rho_time_series[t]:>10.4f} {pos:>20} {vel:>20} {acc:>20}")
             
            # Visualize trajectory with robustness gradient in 2D
             visualizer = Visualizer(x, scenario)
             fig, ax = visualizer.visualize_trajectory_rho_gradient_2d(rho_time_series)
+            if not pars.automated_user:
+                plt.close(fig_map)
             plt.show(block=False)
-            mng = plt.get_current_fig_manager()
-            try:
-                mng.window.showMaximized()
-            except Exception as e:
-                print(f"Could not maximize: {e}")
-
-            plt.show()
-            input("Press Enter to continue to interactive optimization...")
-            plt.close('all')           
+            plt.pause(0.1)
 
             # Interactive optimization: allow user to adjust trajectory
             if pars.interactive_optimization_enabled:
+                input("Press Enter to continue to interactive optimization...")
                 x_final, u_final, rho_final, rho_series_final = integrate_interactive_optimizer(
                     scenario=scenario,
                     spec=spec,
@@ -216,7 +227,7 @@ def main(pars=Default_parameters()):
                     initial_rho=rho_global,
                     initial_rho_series=rho_time_series
                 )
-                
+
                 if x_final is not None:
                     x = x_final
                     u = u_final
@@ -225,8 +236,6 @@ def main(pars=Default_parameters()):
                     print(color_text("Using interactively optimized trajectory.", 'green'))
                 else:
                     print(color_text("Interactive optimization cancelled, using original trajectory.", 'yellow'))
-            else:
-                input("Press Enter to continue...")
 
             # Continue with trajectory validation...
 
@@ -261,19 +270,13 @@ def main(pars=Default_parameters()):
                 raise Exception("The trajectory is infeasible.")
         
             if pars.manual_trajectory_check_enabled:
-                # Ask the user to accept or reject the trajectory
-                while True:
-                    response = input("Accept the trajectory? (y/n): ")
-                    if response.lower() == 'y':
-                        print(color_text("The trajectory is accepted.", 'yellow'))
-                        trajectory_accepted = True
-                        break  # Exit the loop since the trajectory is accepted
-                    elif response.lower() == 'n':
-                        print(color_text("The trajectory is rejected.", 'yellow'))
-                        trajectory_accepted = False
-                        break  # Exit the loop since the trajectory is rejected
-                    else:
-                        print("Invalid input. Please enter 'y' or 'n'.")
+                from LLM.voice_openai import listen_for_yes_no_voice
+                trajectory_accepted = listen_for_yes_no_voice("Do you accept the trajectory?")
+                plt.close('all')
+            #     if trajectory_accepted:
+            #         print(color_text("The trajectory is accepted.", 'yellow'))
+            #     else:
+            #         print(color_text("The trajectory is rejected.", 'yellow'))
 
             if trajectory_accepted:
                 # Add the trajectory to the full trajectory
@@ -284,7 +287,7 @@ def main(pars=Default_parameters()):
                 else:
                     all_rho.extend(rho_time_series[1:])
                 x0 = x[:, -1] # Update the initial position for the next trajectory
-                print("New position after trajectory: ", x0)
+                # print("New position after trajectory: ", x0)
 
         # If the trajectory generation fails, break the loop
         except Exception as e:
@@ -298,15 +301,15 @@ def main(pars=Default_parameters()):
             
             # Terminate the program if the maximum number of syntax check iterations is reached
             elif syntax_checker_iteration > pars.syntax_check_limit:
-                print(color_text("The program is terminated.", 'yellow'), "Exceeded the maximum number of syntax check iterations.")
+                # print(color_text("The program is terminated.", 'yellow'), "Exceeded the maximum number of syntax check iterations.")
                 break
 
 
         previous_messages = messages # Update the conversation history
 
         # Exit the loop directly if the automated user is enabled and the trajectory is accepted
-        if pars.automated_user and (trajectory_accepted or not pars.spec_checker_enabled):
-            if x is not None:
+        if trajectory_accepted or (pars.automated_user and not pars.spec_checker_enabled):
+            if not trajectory_accepted and x is not None:
                 all_x = np.hstack((all_x, x[:,1:]))
                 all_u = np.hstack((all_u, u))
                 if len(all_rho) == 0:
@@ -320,7 +323,7 @@ def main(pars=Default_parameters()):
     if all_x.shape[1] == 1:
         print(color_text("No trajectories were accepted. Exiting the program.", 'yellow'))
     else:
-        print(color_text("The full trajectory is generated.", 'yellow')) 
+        # print(color_text("The full trajectory is generated.", 'yellow')) 
         all_rho_np = np.array(all_rho)
         simulate(pars, scenario, all_x, all_rho_np)# Animate the final trajectory if enabled
 
@@ -329,7 +332,7 @@ def main(pars=Default_parameters()):
     inside_objects_array = trajectory_analyzer.get_inside_objects_array()
     task_accomplished = trajectory_analyzer.task_accomplished_check(inside_objects_array, pars.scenario_name)
 
-    print(color_text("The program is completed.", 'yellow'))
+    # print(color_text("The program is completed.", 'yellow'))
 
     if hasattr(pars, 'use_simulation') and pars.use_simulation:
         return messages, task_accomplished, all_x, all_rho_np, all_u, spec
