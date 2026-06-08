@@ -60,7 +60,7 @@ class One_shot_parameters:
         # Parameters
         self.max_acc = 10                            # maximum acceleration in m/s^2
         self.max_speed = 0.5                         # maximum speed in m/s 
-        self.dt = 1.5                               # time step in seconds
+        self.dt = 1.5                                # time step in seconds
         self.scenario_name = scenario_name           # scenario: "reach_avoid" or "treasure_hunt"
         self.GPT_model = "gpt-5-mini"             # GPT version: "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", etc.
 
@@ -69,13 +69,13 @@ class One_shot_parameters:
         self.spec_checker_enabled = False             # Enable specification check
         self.dynamicless_check_enabled = False       # Enable dynamicless specification check
         self.manual_spec_check_enabled = False       # Enable manual specification check
-        self.manual_trajectory_check_enabled = False # Enable manual trajectory check
+        self.manual_trajectory_check_enabled = True  # Enable manual trajectory check
 
         # Visualization flags
         self.animate_final_trajectory = False     # Animate the final trajectory
         self.save_animation = False                  # Save the final trajectory animation
         self.show_map = False                        # Show a map of the scenario at the start of the program
-        self.interactive_optimization_enabled = False # Enable interactive optimization module
+        self.interactive_optimization_enabled = False # Enable pre-flight interactive path adjustment (non-interruptible during flight); requires deploy_online2
         # Logging flags
         self.solver_verbose = False                  # Enable solver verbose
         self.print_ChatGPT_instructions = False      # Print ChatGPT instructions
@@ -94,14 +94,18 @@ class One_shot_parameters:
         self.automated_user = True                   # Automated user flag
         self.automated_user_input = ""               # Initialisation of the automated user input
 
-        self.automated_translator = True                  # Automated translator flag
+        self.automated_translator = False                 # Automated translator flag
         self.automated_translator_spec = ""               # Initialisation of the automated spec
         self.automated_translator_newspec = ""               # Initialisation of the automated newspec
+        self.switch_step = 6
 
+        self.use_voice   = True
 
         self.STL_included = True                     # Include STL in the system
 
-        self.deploy_on_drone = True                  # Physical deployment
+        self.deploy_on_drone = True                # Physical deployment
 
         self.use_simulation = True
         self.noise_std = 0.02
+
+        self.multi_drone = False                      # Enable multi-drone planning mode
