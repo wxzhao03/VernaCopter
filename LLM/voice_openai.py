@@ -152,7 +152,12 @@ class VoiceOpenAI:
         with open(audio_file, 'rb') as f:
             transcript = self.client.audio.transcriptions.create(
                 model="whisper-1",
-                file=f
+                file=f,
+                language='en',
+                prompt=(
+                    "goal 1, goal 2, goal 3, obstacle 1, obstacle 2, obstacle 3, "
+                    "reach, avoid, go to, fly to, yes, no, accept, reject"
+                ),
             )
         return transcript.text
     
