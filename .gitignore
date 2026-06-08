@@ -36,5 +36,8 @@ venv.bak/
 # Ignore the `src` folder if it's generated or temporary
 src
 
+# libmotioncapture source — compiled files go into conda env, not needed in repo
+libmotioncapture/
+
 # Ignore compiled python code
 *.pyc
